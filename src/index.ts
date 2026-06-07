@@ -42,6 +42,8 @@ export type { DiagramData } from './analysis/chordShapes.js';
 
 export { toNashville, fromNashville } from './chords/nashville.js';
 
+export { ALL_EXTENSIONS, STRICT_EXTENSIONS, MINOR_EXTENSIONS } from './chords/extensions.js';
+
 // ── Types (all exported, all TSDoc'd) ────────────────────────────────────────
 export type {
   Chord,
