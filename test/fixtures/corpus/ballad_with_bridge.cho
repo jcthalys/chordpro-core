@@ -1,0 +1,61 @@
+{title: The Long Road}
+{artist: Sample Artist}
+{key: D}
+{capo: 2}
+{tempo: 72}
+{time: 4/4}
+{copyright: 2024 Sample Artist}
+
+# Verse 1
+{start_of_verse label="Verse 1"}
+[D]Walking down the [A]long and winding [Bm]road
+[G]Never sure where [D]home will [A]be
+[D]Every step I [A]take, I carry [Bm]my load
+[G]But your [A]love is my [D]guarantee
+{end_of_verse}
+
+# Pre-chorus
+{start_of_prechorus}
+[Em]And I know [A7]this much is [D]true
+[G]Everything I [A]do, I [Em]do for [A]you
+{end_of_prechorus}
+
+# Chorus
+{start_of_chorus label="Chorus"}
+[D]Hold me [G]close, don't let me [D]go
+[Bm]Tell me [G]everything I [A]need to know
+[D]Hold me [G]close through rain and [Bm]snow
+[G]You're the [A]only light in [D]this shadow
+{end_of_chorus}
+
+{chorus}
+
+# Verse 2
+{start_of_verse label="Verse 2"}
+[D]Through the [A]fire and the [Bm]flood
+[G]You have [D]never left my [A]side
+[D]In my [A]veins runs more than [Bm]blood
+[G]It's your [A]love my [D]guide
+{end_of_verse}
+
+{start_of_prechorus}
+[Em]And I know [A7]this much is [D]true
+[G]Everything I [A]do, I [Em]do for [A]you
+{end_of_prechorus}
+
+{chorus}
+
+# Bridge
+{start_of_bridge}
+[F#m]When I [Bm]lose my way
+[Em]I'll [A]find my way [D]home
+[F#m]Through [Bm]night and day
+[Em]I'm [A]never a[D]lone
+{end_of_bridge}
+
+{chorus}
+
+{textfont: Arial}
+{chordsize: 11}
+{diagrams}
+{new_page}

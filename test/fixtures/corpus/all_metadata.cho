@@ -1,0 +1,38 @@
+{new_song}
+{title: Complete Metadata Test}
+{sorttitle: Metadata Test, Complete}
+{subtitle: A song for testing}
+{artist: Test Artist}
+{sortartist: Artist, Test}
+{composer: A Composer}
+{lyricist: A Lyricist}
+{copyright: 2024 Test}
+{album: Test Album}
+{year: 2024}
+{key: Am}
+{time: 3/4}
+{tempo: 96}
+{duration: 3:45}
+{capo: 0}
+{meta: genre Folk}
+{meta: language English}
+{tag: folk}
+{tag: test}
+{ccli: 99999}
+{ccli_number: 88888}
+
+{start_of_verse}
+[Am]Life is [G]full of [F]wonder [E7]and [Am]grace
+[Am]Every [G]moment [F]leaves a [E7]trace
+{end_of_verse}
+
+{start_of_chorus}
+[C]Take me [G]back to [Am]simpler [F]times
+[C]When the [G]world was [Am]full of [F]rhymes
+{end_of_chorus}
+
+{pagetype: A4}
+{titles: center}
+{columns: 2}
+{no_grid}
+{grid}

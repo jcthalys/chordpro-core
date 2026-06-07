@@ -1,0 +1,44 @@
+{title: Jazz Standards Medley}
+{artist: Jazz Ensemble}
+{key: C}
+{tempo: 120}
+{copyright: Public Domain}
+
+# Intro with grid
+{start_of_grid}
+Cmaj7 | Am7 | Dm7 | G7
+{end_of_grid}
+
+# Verse — complex jazz chords
+{start_of_verse}
+[Cmaj7]You are the [Am7]sunshine of my [Dm7]life
+[G7]That's why I'll [Cmaj7]always be a[Am7]round
+[Fmaj7]You are the [Fm7]apple of my [Em7]eye
+[Eb7]Forever [Dm7]you'll stay in my [G7sus4]heart
+{end_of_verse}
+
+{start_of_chorus}
+[C9]I feel like [F#dim7]this is the [C/G]beginning
+[A7b9]Though I've [Dm7]loved you [G13]for a [Cmaj7]million years
+[C9]And if I [F#dim7]thought our love was [C/E]ending
+[Am7b5]I'd [D7b9]find myself [Dm7]drowning [G7alt]in my own [Cmaj9]tears
+{end_of_chorus}
+
+# Tab section
+{start_of_tab}
+e|--0--3--5--3--0--|
+B|--1--3--5--3--1--|
+G|--0--2--5--2--0--|
+D|--2--0--3--0--2--|
+A|--3--------3--3--|
+E|--x--------x--x--|
+{end_of_tab}
+
+# Outro
+{start_of_verse label="Outro"}
+[Cmaj7]Whoa, [Am7]whoa, [Dm7]whoa, [G7]yeah
+[Cmaj7]You are the [Am7]sunshine of my [Dm7]life, [G7]yeah
+{end_of_verse}
+
+{x_custom_tag: jazz arrangement}
+{x_bpm_swing: 120}

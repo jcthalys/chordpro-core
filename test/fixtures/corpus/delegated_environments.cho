@@ -1,0 +1,44 @@
+{title: Multi-Environment Song}
+{artist: Test Author}
+{key: G}
+
+{start_of_verse}
+[G]Here is a verse [D]with some [Em]chords
+[C]Before we get [G]into the [D]special [G]sections
+{end_of_verse}
+
+{start_of_abc}
+X:1
+T:Jig
+M:6/8
+L:1/8
+K:G
+G2A B2c|d2e dcB|G2A B2d|1 e3 d2B:|2 e3 efg|
+{end_of_abc}
+
+{start_of_ly}
+\relative c' {
+  \time 4/4
+  c4 d e f | g1
+}
+{end_of_ly}
+
+{start_of_svg}
+<svg xmlns="http://www.w3.org/2000/svg">
+  <circle cx="50" cy="50" r="40"/>
+</svg>
+{end_of_svg}
+
+{start_of_textblock}
+This is a block of plain text
+that should be preserved verbatim
+without any chord parsing.
+{end_of_textblock}
+
+{start_of_chorus}
+[G]After the [C]special [G]sections
+[D]We come [G]back to [C]normal chords
+{end_of_chorus}
+
+{new_physical_page}
+{column_break}

@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>chordpro-core playground</title>
+  <meta name="description" content="Interactive playground for the chordpro-core TypeScript library — parse, transpose, tokenize, and render ChordPro songs live in your browser." />
+  <link rel="stylesheet" href="src/styles.css" />
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────────────────── -->
+<header class="site-header" role="banner">
+  <div class="header-left">
+    <h1>chordpro-core <span style="font-weight:400;color:var(--text-muted)">playground</span></h1>
+    <p class="tagline">Reference implementation of ChordPro parsing, transposition &amp; rendering — all in-browser, zero server</p>
+  </div>
+  <nav class="header-links" aria-label="External links">
+    <a href="https://github.com/jcthalys/chordpro-core" rel="noopener">GitHub</a>
+    <a href="https://www.npmjs.com/package/chordpro-core" rel="noopener">npm</a>
+    <a href="FORMAT.md" rel="noopener">Format spec</a>
+  </nav>
+</header>
+
+<!-- ── Main layout ────────────────────────────────────────────────────── -->
+<div class="main-layout" role="main">
+
+  <!-- Left panel: input + controls -->
+  <div class="left-panel">
+    <div class="input-header">
+      <label for="cp-input">ChordPro Source</label>
+      <span id="line-count" aria-live="polite">0 lines</span>
+    </div>
+
+    <textarea
+      id="cp-input"
+      spellcheck="false"
+      autocorrect="off"
+      autocapitalize="off"
+      aria-label="ChordPro source input"
+      placeholder="Paste ChordPro here…"
+    >{title: Swing Low, Sweet Chariot}
+{artist: Traditional Spiritual}
+{key: D}
+{tempo: 72}
+{copyright: Public Domain}
+
+# Verse 1
+{start_of_verse label="Verse 1"}
+[D]Swing [D7]low, sweet [G]chari[D]ot
+[D]Comin' for to carry [A]me [A7]home
+[D]Swing [D7]low, sweet [G]chari[D]ot
+[D]Comin' for to [A7]carry me [D]home
+{end_of_verse}
+
+{start_of_chorus}
+[D]I [G]looked over [D]Jordan, and [G]what did I [D]see
+[D]Comin' for to carry [A]me [A7]home
+A [D]band of [G]angels [D]comin' after [A]me
+[D]Comin' for to [A7]carry me [D]home
+{end_of_chorus}
+
+{chorus}
+
+{start_of_verse label="Verse 2"}
+[D]If [D7]you get there [G]be[D]fore I do
+[D]Comin' for to carry [A]me [A7]home
+[D]Tell all my [D7]friends I'm [G]comin' [D]too
+[D]Comin' for to [A7]carry me [D]home
+{end_of_verse}
+
+{chorus}
+    </textarea>
+
+    <!-- Controls -->
+    <div class="controls" role="group" aria-label="Playback controls">
+
+      <div class="control-row">
+        <span class="control-label">Chord mode</span>
+        <div class="radio-group" role="radiogroup" aria-label="Chord parsing mode">
+          <label><input type="radio" name="chord-mode" value="strict" checked aria-label="Strict mode" /> Strict</label>
+          <label><input type="radio" name="chord-mode" value="relaxed" aria-label="Relaxed mode" /> Relaxed</label>
+        </div>
+      </div>
+
+      <div class="control-row">
+        <span class="control-label">Transpose</span>
+        <div class="stepper" role="group" aria-label="Transpose semitones">
+          <button id="transpose-down" aria-label="Transpose down one semitone">−</button>
+          <span id="transpose-display" aria-live="polite">0</span>
+          <button id="transpose-up" aria-label="Transpose up one semitone">+</button>
+          <button id="transpose-reset" aria-label="Reset transposition" title="Reset">↺</button>
+        </div>
+      </div>
+
+      <div class="control-row">
+        <span class="control-label">Accidentals</span>
+        <div class="radio-group" role="radiogroup" aria-label="Accidental preference">
+          <label><input type="radio" name="accidentals" value="auto" checked /> Auto</label>
+          <label><input type="radio" name="accidentals" value="sharps" /> Sharps</label>
+          <label><input type="radio" name="accidentals" value="flats" /> Flats</label>
+        </div>
+      </div>
+
+      <div class="control-row">
+        <label class="control-label" for="examples-select">Load example</label>
+        <select id="examples-select" aria-label="Load a preset example">
+          <option value="">— select —</option>
+        </select>
+      </div>
+
+    </div>
+  </div><!-- /left-panel -->
+
+  <!-- Right panel: tabbed output -->
+  <div class="right-panel">
+    <div class="tabs" role="tablist" aria-label="Output views">
+      <button role="tab" class="tab" data-tab="rendered" aria-selected="true">Rendered</button>
+      <button role="tab" class="tab" data-tab="text" aria-selected="false">Text</button>
+      <button role="tab" class="tab" data-tab="ast" aria-selected="false">AST</button>
+      <button role="tab" class="tab" data-tab="tokens" aria-selected="false">Tokens</button>
+      <button role="tab" class="tab" data-tab="roundtrip" aria-selected="false">Round-trip</button>
+      <button role="tab" class="tab" data-tab="chordinspector" aria-selected="false">Chord ↗</button>
+      <button role="tab" class="tab" data-tab="freetext" aria-selected="false">Free-text</button>
+      <button role="tab" class="tab" data-tab="reference" aria-selected="false">Directives</button>
+    </div>
+
+    <div class="tab-panels">
+
+      <!-- Rendered -->
+      <div class="tab-panel active" id="panel-rendered" role="tabpanel" aria-labelledby="tab-rendered">
+        <div class="output-body" aria-live="polite"></div>
+      </div>
+
+      <!-- Text -->
+      <div class="tab-panel" id="panel-text" role="tabpanel" aria-labelledby="tab-text" hidden>
+        <pre aria-live="polite"></pre>
+      </div>
+
+      <!-- AST -->
+      <div class="tab-panel" id="panel-ast" role="tabpanel" aria-labelledby="tab-ast" hidden>
+        <pre aria-live="polite"></pre>
+      </div>
+
+      <!-- Tokens -->
+      <div class="tab-panel" id="panel-tokens" role="tabpanel" aria-labelledby="tab-tokens" hidden>
+        <div class="token-pane">
+          <div class="token-body" aria-live="polite" aria-label="Tokenized output"></div>
+          <div class="token-legend" aria-label="Token type legend">
+            <span class="legend-item"><span class="legend-dot" style="background:var(--tok-meta)"></span>metadata-directive</span>
+            <span class="legend-item"><span class="legend-dot" style="background:var(--tok-section-open)"></span>section-open</span>
+            <span class="legend-item"><span class="legend-dot" style="background:var(--tok-section-end)"></span>section-end</span>
+            <span class="legend-item"><span class="legend-dot" style="background:var(--tok-directive)"></span>directive</span>
+            <span class="legend-item"><span class="legend-dot" style="background:var(--tok-chord)"></span>chord</span>
+            <span class="legend-item"><span class="legend-dot" style="background:var(--tok-annotation)"></span>annotation</span>
+            <span class="legend-item"><span class="legend-dot" style="background:var(--tok-comment)"></span>comment</span>
+            <span class="legend-item"><span class="legend-dot" style="background:var(--tok-lyric)"></span>lyric</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Round-trip -->
+      <div class="tab-panel" id="panel-roundtrip" role="tabpanel" aria-labelledby="tab-roundtrip" hidden>
+        <div class="roundtrip-content" aria-live="polite"></div>
+      </div>
+
+      <!-- Chord inspector -->
+      <div class="tab-panel" id="panel-chordinspector" role="tabpanel" aria-labelledby="tab-chordinspector" hidden>
+        <div class="inspector-controls">
+          <label for="chord-input" style="font-size:0.8rem;font-weight:600;color:var(--text-muted);align-self:center">Chord name</label>
+          <input
+            type="text"
+            id="chord-input"
+            placeholder="Am7b5"
+            spellcheck="false"
+            autocorrect="off"
+            aria-label="Chord name to inspect"
+          />
+          <label for="instrument-select" style="font-size:0.8rem;font-weight:600;color:var(--text-muted);align-self:center">Instrument</label>
+          <select id="instrument-select" aria-label="Select instrument for chord diagram">
+            <option value="guitar">Guitar</option>
+            <option value="ukulele">Ukulele</option>
+          </select>
+        </div>
+        <div id="chord-inspector-result"></div>
+      </div>
+
+      <!-- Free-text converter -->
+      <div class="tab-panel" id="panel-freetext" role="tabpanel" aria-labelledby="tab-freetext" hidden>
+        <div class="freetext-pane">
+          <div class="freetext-label">Loose chord-sheet text input</div>
+          <textarea
+            id="freetext-input"
+            spellcheck="false"
+            placeholder="Paste a loose chord sheet here (chords above lyrics, Key: line, section headings)…"
+            aria-label="Free-text chord sheet input"
+          ></textarea>
+          <div class="freetext-label">parseFreeText() output — detected metadata + canonical ChordPro</div>
+          <div id="freetext-result"><p class="inspector-hint">Paste text above to convert it to ChordPro.</p></div>
+        </div>
+      </div>
+
+      <!-- Directive reference -->
+      <div class="tab-panel" id="panel-reference" role="tabpanel" aria-labelledby="tab-reference" hidden>
+        <table id="directive-table" aria-label="Known ChordPro directives">
+          <thead>
+            <tr>
+              <th scope="col">Directive</th>
+              <th scope="col">Aliases</th>
+              <th scope="col">Category</th>
+              <th scope="col">Takes arg?</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+    </div><!-- /tab-panels -->
+  </div><!-- /right-panel -->
+
+</div><!-- /main-layout -->
+
+<!-- ── Warnings bar ────────────────────────────────────────────────────── -->
+<aside id="warnings-bar" role="complementary" aria-label="Parse warnings" hidden>
+  <div class="warnings-header">
+    <span id="warning-count" aria-live="polite"></span>
+    <button id="warnings-toggle" aria-expanded="false" aria-controls="warnings-list">▾</button>
+  </div>
+  <div id="warnings-list" role="list"></div>
+</aside>
+
+<!-- ── Footer ─────────────────────────────────────────────────────────── -->
+<footer class="site-footer" role="contentinfo">
+  <span id="library-version">chordpro-core</span>
+  <span>MIT License</span>
+  <span>Built from the public <a href="https://www.chordpro.org/chordpro/chordpro-file-format-specification/" rel="noopener">ChordPro File Format Specification</a></span>
+</footer>
+
+<script type="module" src="src/main.ts"></script>
+</body>
+</html>

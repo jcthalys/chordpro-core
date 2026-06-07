@@ -1,0 +1,26 @@
+{title: Selector and Define Test}
+{key: C}
+
+{define: Asus4 base-fret 1 frets -1 0 2 2 3 0 fingers 0 0 2 3 4 0}
+{chord: Asus4 base-fret 1 frets -1 0 2 2 3 0}
+
+{comment-guitar: Play with capo 2}
+{comment-tenor!: Not for tenors}
+{define-guitar: Em base-fret 1 frets 0 2 2 0 0 0}
+
+{start_of_verse}
+[C]Testing [Asus4]special [G]directives
+[Em]With [Am]various [F]selector [G]forms
+{end_of_verse}
+
+{image: src="photo.jpg" scale="50%" align="center"}
+{image: src='photo2.jpg' scale='25%'}
+{highlight}
+{comment: A boxed comment follows}
+{comment_box: This is boxed}
+{comment_italic: This is italic}
+
+{start_of_verse label="Verse 2"}
+[C]Chord [F]definitions [G]defined [C]above
+[Am]Round-trip [Em]with [F]original [G]spelling
+{end_of_verse}

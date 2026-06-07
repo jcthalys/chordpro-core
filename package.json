@@ -1,0 +1,61 @@
+{
+  "name": "chordpro-core",
+  "version": "0.1.0",
+  "description": "Dependency-free TypeScript reference implementation of the ChordPro format",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jcthalys/chordpro-core.git"
+  },
+  "homepage": "https://github.com/jcthalys/chordpro-core#readme",
+  "bugs": {
+    "url": "https://github.com/jcthalys/chordpro-core/issues"
+  },
+  "prepublishOnly": "npm run build",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:tier1": "vitest run --reporter=verbose src/model src/parser src/chords src/render",
+    "lint": "eslint src",
+    "format": "prettier --write .",
+    "coverage": "vitest run --coverage",
+    "ci": "npm run typecheck && npm run lint && npm run coverage",
+    "playground": "npm run build && cd playground && npm install && npm run dev",
+    "playground:build": "npm run build && cd playground && npm install && npm run build",
+    "playground:smoke": "node playground/smoke.mjs"
+  },
+  "keywords": [
+    "chordpro",
+    "music",
+    "chords",
+    "parser",
+    "typescript"
+  ],
+  "author": "Thalys Gomes <jc.thalys@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.60.1",
+    "@typescript-eslint/parser": "^8.60.1",
+    "@vitest/coverage-v8": "^4.1.8",
+    "eslint": "^10.4.1",
+    "prettier": "^3.8.3",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8"
+  }
+}
