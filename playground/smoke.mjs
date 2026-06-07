@@ -18,6 +18,7 @@ import {
   getChordShape,
   toNashville,
   fromNashville,
+  ALL_EXTENSIONS,
   DIRECTIVE_ALIASES,
   KNOWN_DIRECTIVES,
 } from '../dist/index.js';
@@ -174,6 +175,10 @@ check('KNOWN_DIRECTIVES entries have required fields', () => {
   return KNOWN_DIRECTIVES.every(
     (d) => typeof d.name === 'string' && typeof d.takesArg === 'boolean' && Array.isArray(d.aliases),
   );
+});
+
+check('ALL_EXTENSIONS is a non-empty array', () => {
+  return Array.isArray(ALL_EXTENSIONS) && ALL_EXTENSIONS.length > 100;
 });
 
 check('parse never throws on garbage', () => {
