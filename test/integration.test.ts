@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { parse, serialize, transpose, tokenize, parseFreeText, renderHtml, renderText } from '../src/index.js';
+import { parse, serialize, transpose, tokenize, parseFreeText, renderHtml, renderText, DIRECTIVE_ALIASES } from '../src/index.js';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(__dir, 'fixtures');
@@ -148,4 +148,31 @@ describe('integration — font/size/colour directive families', () => {
       });
     }
   }
+});
+
+describe('integration — cf/cs shorthand aliases', () => {
+  it('{cf: Arial} normalizes to chordfont with no warning', () => {
+    const song = parse('{cf: Arial}\nSome lyrics\n');
+    expect(song.warnings.filter((w) => w.code === 'UNKNOWN_DIRECTIVE')).toHaveLength(0);
+  });
+
+  it('{cf: Arial} round-trips preserving original spelling', () => {
+    const src = '{cf: Arial}\nSome lyrics\n';
+    expect(serialize(parse(src))).toContain('{cf: Arial}');
+  });
+
+  it('{cs: 12} normalizes to chordsize with no warning', () => {
+    const song = parse('{cs: 12}\nSome lyrics\n');
+    expect(song.warnings.filter((w) => w.code === 'UNKNOWN_DIRECTIVE')).toHaveLength(0);
+  });
+
+  it('{cs: 12} round-trips preserving original spelling', () => {
+    const src = '{cs: 12}\nSome lyrics\n';
+    expect(serialize(parse(src))).toContain('{cs: 12}');
+  });
+
+  it('DIRECTIVE_ALIASES exports cf and cs', () => {
+    expect(DIRECTIVE_ALIASES['cf']).toBe('chordfont');
+    expect(DIRECTIVE_ALIASES['cs']).toBe('chordsize');
+  });
 });
