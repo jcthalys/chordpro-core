@@ -6,6 +6,21 @@
 import type { Chord, Song, Line, LyricLine, SectionNode, Segment, GridRow } from '../model/types.js';
 import { parseChord } from './parseChord.js';
 
+/**
+ * Parse the argument of a `{transpose: N}` directive.
+ * Supports optional trailing `s` (prefer sharps) or `f` (prefer flats).
+ * Empty / missing argument → semitones: 0 (cancellation).
+ */
+function parseTransposeValue(arg: string | undefined): { semitones: number; opts: TransposeOptions } {
+  if (!arg || arg.trim() === '') return { semitones: 0, opts: {} };
+  let value = arg.trim();
+  let opts: TransposeOptions = {};
+  if (value.endsWith('s')) { opts = { preferSharps: true }; value = value.slice(0, -1); }
+  else if (value.endsWith('f')) { opts = { preferFlats: true }; value = value.slice(0, -1); }
+  const semitones = parseInt(value, 10);
+  return isNaN(semitones) ? { semitones: 0, opts: {} } : { semitones, opts };
+}
+
 export interface TransposeOptions {
   /** Prefer sharps (default: infer from root; use sharps when ambiguous). */
   preferSharps?: boolean;
@@ -89,6 +104,37 @@ export function transpose(song: Song, semitones: number, opts: TransposeOptions 
   }
 
   return { ...song, metadata: newMeta, lines: newLines };
+}
+
+/**
+ * Apply in-song `{transpose: N}` directives to the chord content that follows them.
+ * Each directive shifts all subsequent chords by N semitones; `{transpose}` (no value)
+ * cancels the current transposition. Trailing `s`/`f` on the value sets sharps/flats.
+ *
+ * This is the rendering-time counterpart of the programmatic `transpose()` API.
+ * `renderText` and `renderHtml` call this automatically per the spec.
+ */
+export function applyTransposeDirectives(song: Song): Song {
+  let semitones = 0;
+  let transOpts: TransposeOptions = {};
+
+  function processLines(lines: Line[]): Line[] {
+    return lines.map((line) => {
+      if (line.type === 'directive' && line.name === 'transpose') {
+        const parsed = parseTransposeValue(line.argument);
+        semitones = parsed.semitones;
+        transOpts = parsed.opts;
+        return line; // keep the directive node for round-trip
+      }
+      if (line.type === 'section') {
+        return { ...line, lines: processLines(line.lines) };
+      }
+      return semitones !== 0 ? transposeLine(line, semitones, transOpts) : line;
+    });
+  }
+
+  const newLines = processLines(song.lines);
+  return { ...song, lines: newLines };
 }
 
 function transposeLine(line: Line, semitones: number, opts: TransposeOptions): Line {
