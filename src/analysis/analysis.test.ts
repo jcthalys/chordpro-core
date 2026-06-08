@@ -94,27 +94,92 @@ describe('guessKey — diatonic coverage scoring', () => {
 });
 
 describe('getChordShape', () => {
-  it('returns shape for common guitar chords', () => {
-    const chords = ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'Am', 'Em', 'Dm'];
+  it('returns shape for all natural guitar major/minor chords', () => {
+    const chords = ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'Am', 'Bm', 'Cm', 'Dm', 'Em', 'Fm', 'Gm'];
     for (const name of chords) {
       const shape = getChordShape(name, 'guitar');
-      expect(shape).not.toBeNull();
-      expect(shape?.frets).toBeInstanceOf(Array);
+      expect(shape, `${name} guitar`).not.toBeNull();
+      expect(shape?.frets).toHaveLength(6);
       expect(shape?.baseFret).toBeGreaterThan(0);
     }
   });
 
-  it('returns shape for common ukulele chords', () => {
-    const chords = ['C', 'D', 'G', 'Am', 'F'];
+  it('returns shape for accidental major/minor guitar chords (static table)', () => {
+    const chords = ['F#', 'Bb', 'Ab', 'Eb', 'Db', 'F#m', 'Bbm', 'C#m', 'Abm'];
     for (const name of chords) {
-      const shape = getChordShape(name, 'ukulele');
-      expect(shape).not.toBeNull();
+      expect(getChordShape(name, 'guitar'), `${name}`).not.toBeNull();
     }
   });
 
-  it('returns null for unknown chord', () => {
+  it('returns 7th chord shapes (guitar)', () => {
+    const chords = ['C7', 'D7', 'E7', 'F7', 'G7', 'A7', 'B7', 'Am7', 'Em7', 'Dm7', 'Bm7', 'Cmaj7', 'Fmaj7', 'Gmaj7', 'Amaj7'];
+    for (const name of chords) {
+      expect(getChordShape(name, 'guitar'), `${name}`).not.toBeNull();
+    }
+  });
+
+  it('returns suspended chord shapes (guitar)', () => {
+    for (const name of ['Asus2', 'Asus4', 'Dsus2', 'Dsus4', 'Esus4', 'Gsus4', 'Csus2']) {
+      expect(getChordShape(name, 'guitar'), name).not.toBeNull();
+    }
+  });
+
+  it('returns add9 shapes (guitar)', () => {
+    for (const name of ['Cadd9', 'Gadd9', 'Dadd9', 'Aadd9']) {
+      expect(getChordShape(name, 'guitar'), name).not.toBeNull();
+    }
+  });
+
+  it('returns diminished and augmented shapes (guitar)', () => {
+    for (const name of ['Bdim', 'Edim', 'Adim', 'Caug', 'Gaug', 'Eaug']) {
+      expect(getChordShape(name, 'guitar'), name).not.toBeNull();
+    }
+  });
+
+  it('falls back to barre shape for major chords not in static table', () => {
+    // Eb not in table directly but should derive from E-shape or A-shape
+    const shape = getChordShape('Eb', 'guitar');
+    expect(shape).not.toBeNull();
+    expect(shape?.frets).toHaveLength(6);
+  });
+
+  it('falls back to barre shape for minor chords not in static table', () => {
+    const shape = getChordShape('Gbm', 'guitar');
+    expect(shape).not.toBeNull();
+    expect(shape?.frets).toHaveLength(6);
+  });
+
+  it('barre fallback returns correct baseFret for C major (A-shape at fret 3)', () => {
+    // C major A-shape: A string root, C = (0-9+12)%12 = 3, so baseFret=3
+    // But C IS in the static table — test a chord that isn't, like Ab
+    // Ab via E-shape: (8-4)=4 → baseFret=4
+    const shape = getChordShape('Ab', 'guitar');
+    expect(shape?.baseFret).toBe(4);
+  });
+
+  it('returns shape for common ukulele chords', () => {
+    const chords = ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'Am', 'Em', 'Dm', 'Gm', 'Bm'];
+    for (const name of chords) {
+      const shape = getChordShape(name, 'ukulele');
+      expect(shape, `${name} ukulele`).not.toBeNull();
+      expect(shape?.frets).toHaveLength(4);
+    }
+  });
+
+  it('returns 7th and maj7 shapes for ukulele', () => {
+    for (const name of ['C7', 'G7', 'A7', 'Am7', 'Cmaj7', 'Fmaj7', 'Gmaj7']) {
+      expect(getChordShape(name, 'ukulele'), `${name} ukulele`).not.toBeNull();
+    }
+  });
+
+  it('returns null for unknown chord (no barre fallback for unrecognized roots)', () => {
     expect(getChordShape('Xyz123', 'guitar')).toBeNull();
     expect(getChordShape('Xyz123', 'ukulele')).toBeNull();
+  });
+
+  it('returns null for complex unknown extensions (barre only covers major/minor)', () => {
+    // Barre fallback doesn't cover 7th/extended on unknown chords
+    expect(getChordShape('Xmaj7', 'guitar')).toBeNull();
   });
 
   it('returns defined chord from {define} directive', () => {
@@ -126,14 +191,12 @@ describe('getChordShape', () => {
     expect(shape?.frets).toEqual([0, 2, 2, 1, 0, 0]);
   });
 
-  it('guitar frets array has 6 elements for standard chords', () => {
-    const shape = getChordShape('G', 'guitar');
-    expect(shape?.frets).toHaveLength(6);
-  });
-
-  it('ukulele frets array has 4 elements for standard chords', () => {
-    const shape = getChordShape('G', 'ukulele');
-    expect(shape?.frets).toHaveLength(4);
+  it('song-defined chord takes priority over static table', () => {
+    // Override G with a custom voicing
+    const src = '{define: G base-fret 5 frets 1 3 3 2 1 1}';
+    const song = parse(src);
+    const shape = getChordShape('G', 'guitar', song);
+    expect(shape?.baseFret).toBe(5);
   });
 });
 
