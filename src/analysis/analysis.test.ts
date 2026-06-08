@@ -1,5 +1,5 @@
 /**
- * Tier 2 — analysis (guessKey, getChordShape, Nashville stubs) tests.
+ * Tier 2 — analysis (guessKey, getChordShape, Nashville) tests.
  * @tier tier2
  */
 
@@ -90,17 +90,109 @@ describe('getChordShape', () => {
   });
 });
 
-describe('Nashville (stubs)', () => {
-  it('toNashville returns a song (stub passthrough)', () => {
-    const song = parse('[G]word [D]two');
-    const result = toNashville(song, 'G');
-    expect(result).toBeDefined();
-    expect(result.lines).toEqual(song.lines);
+describe('Nashville Number System', () => {
+  // In key of G: G=1 A=2 B=3 C=4 D=5 E=6 F#=7
+  describe('toNashville', () => {
+    it('converts root to scale degree in key of G', () => {
+      const song = parse('[G]word');
+      const result = toNashville(song, 'G');
+      const lyric = result.lines.find((l) => l.type === 'lyric');
+      expect(lyric?.type === 'lyric' && lyric.segments[0]?.chord?.name).toBe('1');
+    });
+
+    it('converts the 5th degree (D in G)', () => {
+      const song = parse('[D]word');
+      const result = toNashville(song, 'G');
+      const lyric = result.lines.find((l) => l.type === 'lyric');
+      expect(lyric?.type === 'lyric' && lyric.segments[0]?.chord?.name).toBe('5');
+    });
+
+    it('preserves qualifier (minor)', () => {
+      const song = parse('[Em]word');
+      const result = toNashville(song, 'G');
+      const lyric = result.lines.find((l) => l.type === 'lyric');
+      expect(lyric?.type === 'lyric' && lyric.segments[0]?.chord?.name).toBe('6m');
+    });
+
+    it('preserves extension (Am7 in C → 6m7)', () => {
+      const song = parse('[Am7]word');
+      const result = toNashville(song, 'C');
+      const lyric = result.lines.find((l) => l.type === 'lyric');
+      expect(lyric?.type === 'lyric' && lyric.segments[0]?.chord?.name).toBe('6m7');
+    });
+
+    it('handles chromatic root (C# in G = b5, flat of the 5th degree D)', () => {
+      const song = parse('[C#]word');
+      const result = toNashville(song, 'G');
+      const lyric = result.lines.find((l) => l.type === 'lyric');
+      expect(lyric?.type === 'lyric' && lyric.segments[0]?.chord?.name).toBe('b5');
+    });
+
+    it('handles flat 7 (F in G = b7)', () => {
+      const song = parse('[F]word');
+      const result = toNashville(song, 'G');
+      const lyric = result.lines.find((l) => l.type === 'lyric');
+      expect(lyric?.type === 'lyric' && lyric.segments[0]?.chord?.name).toBe('b7');
+    });
+
+    it('converts slash chord bass note', () => {
+      const song = parse('[G/B]word');
+      const result = toNashville(song, 'G');
+      const lyric = result.lines.find((l) => l.type === 'lyric');
+      expect(lyric?.type === 'lyric' && lyric.segments[0]?.chord?.name).toBe('1/3');
+    });
   });
 
-  it('fromNashville returns a song (stub passthrough)', () => {
-    const song = parse('[1]word [5]two');
-    const result = fromNashville(song, 'G');
-    expect(result).toBeDefined();
+  describe('fromNashville', () => {
+    it('converts degree to root in key of G', () => {
+      const song = parse('[1]word');
+      const result = fromNashville(song, 'G');
+      const lyric = result.lines.find((l) => l.type === 'lyric');
+      expect(lyric?.type === 'lyric' && lyric.segments[0]?.chord?.name).toBe('G');
+    });
+
+    it('converts 5 to D in key of G', () => {
+      const song = parse('[5]word');
+      const result = fromNashville(song, 'G');
+      const lyric = result.lines.find((l) => l.type === 'lyric');
+      expect(lyric?.type === 'lyric' && lyric.segments[0]?.chord?.name).toBe('D');
+    });
+
+    it('preserves qualifier', () => {
+      const song = parse('[6m]word');
+      const result = fromNashville(song, 'G');
+      const lyric = result.lines.find((l) => l.type === 'lyric');
+      expect(lyric?.type === 'lyric' && lyric.segments[0]?.chord?.name).toBe('Em');
+    });
+
+    it('handles flat degrees (b7 in G = F)', () => {
+      const song = parse('[b7]word');
+      const result = fromNashville(song, 'G');
+      const lyric = result.lines.find((l) => l.type === 'lyric');
+      expect(lyric?.type === 'lyric' && lyric.segments[0]?.chord?.name).toBe('F');
+    });
+  });
+
+  describe('round-trip', () => {
+    it('fromNashville(toNashville(song, key), key) restores original chord names', () => {
+      const chords = ['G', 'D', 'Em', 'C', 'Am7', 'Bm'];
+      const src = chords.map((c) => `[${c}]word`).join('\n');
+      const song = parse(src);
+      const restored = fromNashville(toNashville(song, 'G'), 'G');
+      const restoredChords = restored.lines
+        .filter((l) => l.type === 'lyric')
+        .map((l) => l.type === 'lyric' ? l.segments[0]?.chord?.name : undefined);
+      expect(restoredChords).toEqual(chords);
+    });
+
+    it('round-trip in key of C', () => {
+      const src = '[C]one [F]two [G]three [Am]four';
+      const song = parse(src);
+      const restored = fromNashville(toNashville(song, 'C'), 'C');
+      const names = restored.lines
+        .filter((l) => l.type === 'lyric')
+        .flatMap((l) => l.type === 'lyric' ? l.segments.filter((s) => s.chord).map((s) => s.chord!.name) : []);
+      expect(names).toEqual(['C', 'F', 'G', 'Am']);
+    });
   });
 });
