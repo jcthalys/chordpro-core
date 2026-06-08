@@ -19,6 +19,7 @@ import {
   serialize,
   transpose,
   transposeChord,
+  applyTransposeDirectives,
   parseChord,
   tokenize,
   renderText,
@@ -943,5 +944,90 @@ describe('{new_song} directive', () => {
     const ns = song.lines.find((l) => l.type === 'directive' && l.name === 'new_song');
     expect(ns).toBeDefined();
     expect(serialize(song)).toContain('{new_song}');
+  });
+});
+
+// ─── applyTransposeDirectives ──────────────────────────────────────────────
+
+describe('applyTransposeDirectives', () => {
+  it('transposes chords after {transpose: 2}', () => {
+    const src = '{transpose: 2}\n[C]lyrics\n';
+    const song = applyTransposeDirectives(parse(src));
+    const lyric = song.lines.find((l) => l.type === 'lyric');
+    expect(lyric?.type === 'lyric' && lyric.segments[0]?.chord?.name).toBe('D');
+  });
+
+  it('does not transpose chords before the directive', () => {
+    const src = '[C]before\n{transpose: 2}\n[C]after\n';
+    const song = applyTransposeDirectives(parse(src));
+    const lines = song.lines.filter((l) => l.type === 'lyric');
+    expect(lines[0]?.type === 'lyric' && lines[0].segments[0]?.chord?.name).toBe('C');
+    expect(lines[1]?.type === 'lyric' && lines[1].segments[0]?.chord?.name).toBe('D');
+  });
+
+  it('{transpose} with no value cancels transposition', () => {
+    const src = '{transpose: 2}\n[C]up\n{transpose}\n[C]back\n';
+    const song = applyTransposeDirectives(parse(src));
+    const lyrics = song.lines.filter((l) => l.type === 'lyric');
+    expect(lyrics[0]?.type === 'lyric' && lyrics[0].segments[0]?.chord?.name).toBe('D');
+    expect(lyrics[1]?.type === 'lyric' && lyrics[1].segments[0]?.chord?.name).toBe('C');
+  });
+
+  it('trailing s suffix forces sharps', () => {
+    const src = '{transpose: 1s}\n[Bb]lyrics\n';
+    const song = applyTransposeDirectives(parse(src));
+    const lyric = song.lines.find((l) => l.type === 'lyric');
+    expect(lyric?.type === 'lyric' && lyric.segments[0]?.chord?.name).toBe('B');
+  });
+
+  it('trailing f suffix forces flats', () => {
+    // C + 1 semitone = C# (sharps) or Db (flats)
+    const src = '{transpose: 1f}\n[C]lyrics\n';
+    const song = applyTransposeDirectives(parse(src));
+    const lyric = song.lines.find((l) => l.type === 'lyric');
+    expect(lyric?.type === 'lyric' && lyric.segments[0]?.chord?.name).toBe('Db');
+  });
+
+  it('directive node is preserved for round-trip', () => {
+    const src = '{transpose: 2}\n[C]lyrics\n';
+    const song = applyTransposeDirectives(parse(src));
+    expect(serialize(song)).toContain('{transpose: 2}');
+  });
+
+  it('applies inside sections', () => {
+    const src = '{start_of_chorus}\n{transpose: 5}\n[C]line\n{end_of_chorus}\n';
+    const song = applyTransposeDirectives(parse(src));
+    const section = song.lines.find((l) => l.type === 'section');
+    const lyric = section?.type === 'section' && section.lines.find((l) => l.type === 'lyric');
+    expect(lyric?.type === 'lyric' && lyric.segments[0]?.chord?.name).toBe('F');
+  });
+
+  it('renderText honours in-song {transpose}', () => {
+    const src = '{transpose: 7}\n[C]Amazing\n';
+    const text = renderText(parse(src), { includeHeader: false });
+    expect(text).toContain('G');
+    expect(text).not.toMatch(/\bC\b/);
+  });
+
+  it('renderHtml honours in-song {transpose}', () => {
+    const src = '{transpose: 7}\n[C]Amazing\n';
+    const html = renderHtml(parse(src), { includeHeader: false });
+    expect(html).toContain('G');
+    expect(html).not.toMatch(/class="cp-chord">C</);
+  });
+
+  it('negative semitones work (transpose down)', () => {
+    const src = '{transpose: -2}\n[D]lyrics\n';
+    const song = applyTransposeDirectives(parse(src));
+    const lyric = song.lines.find((l) => l.type === 'lyric');
+    expect(lyric?.type === 'lyric' && lyric.segments[0]?.chord?.name).toBe('C');
+  });
+
+  it('no-op when no transpose directive present — chords unchanged', () => {
+    const src = '[C]lyrics [G]more\n';
+    const song = applyTransposeDirectives(parse(src));
+    const lyric = song.lines.find((l) => l.type === 'lyric');
+    expect(lyric?.type === 'lyric' && lyric.segments[0]?.chord?.name).toBe('C');
+    expect(lyric?.type === 'lyric' && lyric.segments[1]?.chord?.name).toBe('G');
   });
 });
