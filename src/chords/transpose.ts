@@ -46,6 +46,34 @@ const ROOT_TO_SEMITONE: Record<string, number> = {
   Gis: 8, As: 8, Ais: 10,
 };
 
+/**
+ * Return the sounding key for a song that may have a capo.
+ * If no `{key}` directive is present, returns null.
+ * If capo is 0 or absent, returns the key unchanged.
+ */
+export function soundingKey(song: Song): string | null {
+  const key = song.metadata.get('key');
+  if (!key) return null;
+  const capoStr = song.metadata.get('capo');
+  const capo = capoStr ? parseInt(capoStr, 10) : 0;
+  if (!capo || isNaN(capo)) return key;
+  return soundingKeyOf(key, capo);
+}
+
+/**
+ * Transpose a key string up by `capo` frets.
+ * Preserves minor qualifier and derives accidental preference from the original key.
+ * If the key is not parseable, returns it unchanged.
+ */
+export function soundingKeyOf(key: string, capo: number): string {
+  if (!capo) return key;
+  const parsed = parseChord(key, { mode: 'relaxed' });
+  if (!parsed.parsed || !parsed.root) return key;
+  const opts: TransposeOptions = rootUsesFlat(parsed.root) ? { preferFlats: true } : { preferSharps: true };
+  const newRoot = transposeRoot(parsed.root, capo, opts);
+  return newRoot + (parsed.qualifier ?? '');
+}
+
 /** Whether a root uses a flat (so transposing should prefer flats by default). */
 function rootUsesFlat(root: string): boolean {
   return root.endsWith('b') || root === 'Bb' || root === 'Eb' || root === 'Ab' ||

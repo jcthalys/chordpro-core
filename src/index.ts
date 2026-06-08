@@ -16,7 +16,7 @@ export { resolveChorus, collectChorusCandidates } from './parser/resolveChorus.j
 export { parseChord } from './chords/parseChord.js';
 export type { ChordParseOptions } from './chords/parseChord.js';
 
-export { transpose, transposeChord, applyTransposeDirectives } from './chords/transpose.js';
+export { transpose, transposeChord, applyTransposeDirectives, soundingKey, soundingKeyOf } from './chords/transpose.js';
 export type { TransposeOptions } from './chords/transpose.js';
 
 export { renderText } from './render/renderText.js';

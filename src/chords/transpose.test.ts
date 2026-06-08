@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { transposeChord, transpose } from './transpose.js';
+import { transposeChord, transpose, soundingKey, soundingKeyOf } from './transpose.js';
 import { parseChord } from './parseChord.js';
 import { parse } from '../parser/parse.js';
 
@@ -123,5 +123,98 @@ describe('transpose (song-level)', () => {
     if (line?.type === 'lyric') {
       expect(line.segments[0]?.annotation).toBe('Coda');
     }
+  });
+});
+
+describe('soundingKeyOf', () => {
+  it('capo 0 returns key unchanged', () => {
+    expect(soundingKeyOf('G', 0)).toBe('G');
+  });
+
+  it('G + capo 2 → A', () => {
+    expect(soundingKeyOf('G', 2)).toBe('A');
+  });
+
+  it('Am + capo 3 → Cm (preserves minor)', () => {
+    expect(soundingKeyOf('Am', 3)).toBe('Cm');
+  });
+
+  it('Bb + capo 1 → B (not Cb)', () => {
+    expect(soundingKeyOf('Bb', 1)).toBe('B');
+  });
+
+  it('Eb + capo 2 → F (not E#)', () => {
+    expect(soundingKeyOf('Eb', 2)).toBe('F');
+  });
+
+  it('C + capo 2 → D', () => {
+    expect(soundingKeyOf('C', 2)).toBe('D');
+  });
+
+  it('D + capo 1 → Eb (flat key from sharp input uses sharps)', () => {
+    expect(soundingKeyOf('D', 1)).toBe('D#');
+  });
+
+  it('Bb + capo 2 → C', () => {
+    expect(soundingKeyOf('Bb', 2)).toBe('C');
+  });
+
+  it('Eb + capo 3 → Gb (flat preference)', () => {
+    expect(soundingKeyOf('Eb', 3)).toBe('Gb');
+  });
+
+  it('F + capo 2 → G', () => {
+    expect(soundingKeyOf('F', 2)).toBe('G');
+  });
+
+  it('Em + capo 2 → F#m (preserves minor, sharp preference)', () => {
+    expect(soundingKeyOf('Em', 2)).toBe('F#m');
+  });
+
+  it('Bbm + capo 2 → Cm (minor flat key, flat preference)', () => {
+    expect(soundingKeyOf('Bbm', 2)).toBe('Cm');
+  });
+
+  it('all 12 capo positions on G', () => {
+    const expected = ['G', 'G#', 'A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#'];
+    for (let n = 0; n < 12; n++) {
+      expect(soundingKeyOf('G', n)).toBe(expected[n]);
+    }
+  });
+
+  it('unknown key root passes through unchanged', () => {
+    expect(soundingKeyOf('Xyz', 2)).toBe('Xyz');
+  });
+});
+
+describe('soundingKey', () => {
+  it('returns null when no key directive', () => {
+    const song = parse('{capo: 2}');
+    expect(soundingKey(song)).toBeNull();
+  });
+
+  it('returns key unchanged when no capo', () => {
+    const song = parse('{key: G}');
+    expect(soundingKey(song)).toBe('G');
+  });
+
+  it('returns key unchanged when capo 0', () => {
+    const song = parse('{key: G}\n{capo: 0}');
+    expect(soundingKey(song)).toBe('G');
+  });
+
+  it('G + capo 2 → A', () => {
+    const song = parse('{key: G}\n{capo: 2}');
+    expect(soundingKey(song)).toBe('A');
+  });
+
+  it('Am + capo 3 → Cm', () => {
+    const song = parse('{key: Am}\n{capo: 3}');
+    expect(soundingKey(song)).toBe('Cm');
+  });
+
+  it('Bb + capo 1 → B', () => {
+    const song = parse('{key: Bb}\n{capo: 1}');
+    expect(soundingKey(song)).toBe('B');
   });
 });
