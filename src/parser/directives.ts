@@ -46,6 +46,8 @@ export const DIRECTIVE_ALIASES: Readonly<Record<string, string>> = {
   col: 'columns',
   g: 'grid',
   ng: 'no_grid',
+  cf: 'chordfont',
+  cs: 'chordsize',
 };
 
 /** Normalize a directive name: alias → canonical. Unknown names returned as-is. */
@@ -198,8 +200,8 @@ export const KNOWN_DIRECTIVES: ReadonlyArray<DirectiveInfo> = [
   { name: 'textsize', aliases: [], category: 'output-layout', takesArg: true },
   { name: 'textcolour', aliases: [], category: 'output-layout', takesArg: true },
   { name: 'textcolor', aliases: [], category: 'output-layout', takesArg: true },
-  { name: 'chordfont', aliases: [], category: 'output-layout', takesArg: true },
-  { name: 'chordsize', aliases: [], category: 'output-layout', takesArg: true },
+  { name: 'chordfont', aliases: ['cf'], category: 'output-layout', takesArg: true },
+  { name: 'chordsize', aliases: ['cs'], category: 'output-layout', takesArg: true },
   { name: 'chordcolour', aliases: [], category: 'output-layout', takesArg: true },
   { name: 'chordcolor', aliases: [], category: 'output-layout', takesArg: true },
   { name: 'titlefont', aliases: [], category: 'output-layout', takesArg: true },
