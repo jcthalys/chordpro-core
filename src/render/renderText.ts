@@ -4,6 +4,7 @@
  */
 
 import type { Song, Line, LyricLine, SectionNode } from '../model/types.js';
+import { applyTransposeDirectives } from '../chords/transpose.js';
 
 export interface TextRenderOptions {
   /** Include metadata header (title/artist/key) at top. Default: true. */
@@ -14,6 +15,7 @@ export interface TextRenderOptions {
 
 /** Render a Song to chords-over-lyrics plain text. */
 export function renderText(song: Song, options: TextRenderOptions = {}): string {
+  song = applyTransposeDirectives(song);
   const includeHeader = options.includeHeader ?? true;
   const parts: string[] = [];
 

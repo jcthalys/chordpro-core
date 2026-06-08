@@ -15,6 +15,7 @@
  */
 
 import type { Song, Line, LyricLine, SectionNode, Segment } from '../model/types.js';
+import { applyTransposeDirectives } from '../chords/transpose.js';
 
 export interface HtmlRenderOptions {
   /** Include metadata header. Default: true. */
@@ -23,6 +24,7 @@ export interface HtmlRenderOptions {
 
 /** Render a Song to an HTML string with semantic class annotations. */
 export function renderHtml(song: Song, options: HtmlRenderOptions = {}): string {
+  song = applyTransposeDirectives(song);
   const includeHeader = options.includeHeader ?? true;
   const parts: string[] = [];
 
