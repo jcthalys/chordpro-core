@@ -6,7 +6,7 @@
  * Auxiliary helper, not part of the ChordPro format specification.
  */
 
-import type { Song } from '../model/types.js';
+import type { Song, ChordDef } from '../model/types.js';
 
 export interface DiagramData {
   baseFret: number;
@@ -88,28 +88,15 @@ export function getChordShape(
 
 function getSongDefinedShape(name: string, song: Song): DiagramData | null {
   for (const line of song.lines) {
-    if (line.type === 'directive' && (line.name === 'define' || line.name === 'chord')) {
-      const arg = line.argument ?? '';
-      // Parse: NAME base-fret N frets f f f f f f fingers ...
-      const nameMatch = arg.match(/^(\S+)/);
-      if (!nameMatch || nameMatch[1] !== name) continue;
-
-      const baseFretMatch = arg.match(/base-fret\s+(\d+)/i);
-      const fretsMatch = arg.match(/frets\s+([\d\s-]+?)(?:\s+fingers|$)/i);
-      const fingersMatch = arg.match(/fingers\s+([\d\s]+?)(?:\s|$)/i);
-
-      const baseFret = baseFretMatch ? parseInt(baseFretMatch[1]!, 10) : 1;
-      const frets = fretsMatch
-        ? fretsMatch[1]!.trim().split(/\s+/).map((n) => (n === '-' ? -1 : parseInt(n, 10)))
-        : [];
-      const fingers = fingersMatch
-        ? fingersMatch[1]!.trim().split(/\s+/).map((n) => parseInt(n, 10))
-        : undefined;
-
-      const shape: DiagramData = { baseFret, frets };
-      if (fingers !== undefined) shape.fingers = fingers;
-      return shape;
-    }
+    if (line.type !== 'chord_def' || line.name !== name) continue;
+    return chordDefToShape(line);
   }
   return null;
+}
+
+function chordDefToShape(def: ChordDef): DiagramData | null {
+  if (!def.frets || def.frets.length === 0) return null;
+  const shape: DiagramData = { baseFret: def.baseFret ?? 1, frets: def.frets };
+  if (def.fingers && def.fingers.length > 0) shape.fingers = def.fingers;
+  return shape;
 }

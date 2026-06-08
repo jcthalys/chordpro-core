@@ -60,6 +60,8 @@ function renderLineText(line: Line): string | null {
       return line.text;
     case 'grid_row':
       return '| ' + line.cells.map((c) => c.chords.map((ch) => ch.name).join(' ')).join(' | ') + ' |';
+    case 'chord_def':
+      return null; // chord definitions are not rendered as text
   }
 }
 
