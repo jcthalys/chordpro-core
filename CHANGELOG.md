@@ -2,6 +2,70 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] — Brazilian/Portuguese chord sheet support + sounding key
+
+### New Tier 1 APIs
+
+- **`soundingKey(song): string | null`** — returns the key a song sounds in after
+  capo transposition. Reads `{key}` and `{capo}` from metadata; returns `null` when
+  no key is set; returns the key unchanged when capo is 0 or absent. Accidental
+  preference follows the written key (flat keys stay flat).
+- **`soundingKeyOf(key, capo): string`** — lower-level helper; transposes a key
+  string up by a given number of semitones. Preserves minor qualifier; derives
+  accidental preference from the original key spelling.
+
+### Tier 2 — `parseFreeText` improvements
+
+**Extended Brazilian/Portuguese metadata detection.** All of the following are
+now recognized (case-insensitive; colon optional where noted):
+
+- Combined key+capo forms: `Tom: A (Capo 2)`, `Tom com Capo 2: G`, `Tom (Capo 2): G`
+- `Tom real: X` → `{meta: tom_real X}`; `Afinação: X` / `Afinacao: X` → `{meta: afinacao X}`
+- `Capo N` (without colon)
+- `Andamento: X` — numeric → `{tempo: N}`, text → `{meta: andamento X}`
+- `Ritmo: X` → `{meta: ritmo X}`
+- `Compasso: N/N` → `{time: N/N}`; `Fórmula de compasso: N/N` → same
+- `Artista:`, `Título:`/`Titulo:`, `Álbum:`/`Album:`, `Ano:`, `Compositor:`/`Composição:`,
+  `Letrista:`, `Copyright:` → respective standard ChordPro metadata directives
+
+**Extended section heading detection.** Added: `Estrofe [N]`, `Coro`, `Pré-Refrão`/`Pre-Refrao`,
+`Pré-Coro`/`Pre-Coro`, `Pre-Chorus`, `Intro`/`Introdução`/`Introducao`/`Abertura`,
+`Outro`/`Final`/`Finalização`/`Coda`, `Solo [N]`, `Instrumental`, `Riff [N]`,
+`Interlúdio [N]`/`Interludio [N]`. All accept optional brackets, colon, and number suffix.
+
+**Repeat annotation handling.** `(x2)`, `(2x)`, `(N vezes)`, `(repete N)`, `(repeat N)`, etc.:
+- On a section heading line → `{meta: repeat N}` emitted first inside the section
+- On a standalone line → `{comment: (xN)}`
+- At the end of a lyric line → `[*xN]` annotation
+
+**Unicode-aware chord-above-lyrics column alignment.** The chord merger now uses
+code-point iteration (`[...str]`) for position measurement, which is correct for
+non-BMP characters (surrogate pairs / emoji) in chord or lyric lines.
+
+**Explicit `Artista:` / `Título:` metadata lines now suppress auto title/artist
+detection** from subsequent free-text lines (consistent with the explicit value taking
+priority).
+
+### Documentation
+
+- README: documents `soundingKey` / `soundingKeyOf` in the Tier 1 API section.
+- README: extends the `parseFreeText` section with full metadata and section heading tables.
+- FORMAT.md: documents the `{meta: repeat N}` convention for repeat annotations.
+
+### Tests
+
+- `soundingKey` / `soundingKeyOf` — table-driven across all 12 capo positions × multiple key types.
+- `parseFreeText` — one test per new metadata pattern.
+- `parseFreeText` — one test per new section heading variant.
+- `parseFreeText` — repeat annotations: heading, standalone, end-of-lyric.
+- `parseFreeText` — accent-aware alignment with Portuguese lyrics.
+- `test/fixtures/brazilian/evidencias.test.ts` — complete Cifra Club–style paste fixture
+  with 24 assertions covering all metadata, sections, repeat counts, chord merging, and
+  round-trip re-parse.
+- Total: 805 tests, all passing.
+
+---
+
 ## [0.2.0] — Spec completeness, Nashville, chord shapes, pre-release audit
 
 ### Breaking changes (0.x)

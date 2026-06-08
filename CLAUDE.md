@@ -38,9 +38,10 @@ test/ mirrors src/, fixtures in test/fixtures
 
 **Tier 1 + Tier 2 complete; playground deployed. See COVERAGE.md for full spec audit.**
 
-- 561 tests, 10 test files — all passing
-- Coverage: 92.8% statements / 84.3% branches / 96.4% functions / 95.3% lines
+- 805 tests, 11 test files — all passing
+- Coverage: 94.5% statements / 87.2% branches / 96.8% functions / 96.7% lines
 - TypeScript strict, ESLint, build — all clean
+- v0.3.0: `soundingKey`/`soundingKeyOf`; extended Brazilian/Portuguese `parseFreeText`
 
 ## Key implementation details (for future sessions)
 

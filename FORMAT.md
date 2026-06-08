@@ -194,6 +194,21 @@ interface Chord {
 
 ---
 
+## `{meta: repeat N}` convention (Tier 2)
+
+`parseFreeText` emits `{meta: repeat N}` as the first directive inside a section
+when a repeat count is found on the section heading (e.g. `[Refrão] (x2)`).
+
+`{meta: repeat N}` is spec-legal (meta directives are arbitrary key-value pairs),
+round-trips losslessly through `parse` / `serialize`, and gives consuming apps a
+structured hook via `song.metadata.get('repeat')` when walking the section tree,
+or by reading the `{meta:}` directive node directly.
+
+This is a **Tier 2 convention** — it is emitted only by `parseFreeText` and is
+not interpreted by any Tier 1 function.
+
+---
+
 ## Guiding policy
 
 > **Recognize and round-trip the entire format; implement semantics only for the

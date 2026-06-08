@@ -151,6 +151,33 @@ interface TransposeOptions {
 }
 ```
 
+#### `soundingKey(song): string | null`
+
+Returns the key the song _sounds_ in after capo transposition.
+Reads `{key}` and `{capo}` from `song.metadata` and transposes up by capo
+frets. Returns `null` when no `{key}` directive is present. If capo is 0 or
+absent, returns the key unchanged. Accidental style follows the written key
+(flat keys stay flat-preferred):
+
+```ts
+soundingKey(parse('{key: G}\n{capo: 2}'))  // → "A"
+soundingKey(parse('{key: Am}\n{capo: 3}')) // → "Cm"
+soundingKey(parse('{key: Bb}\n{capo: 1}')) // → "B"
+soundingKey(parse('{capo: 2}'))            // → null  (no key)
+```
+
+#### `soundingKeyOf(key, capo): string`
+
+Lower-level helper for consumers who have key and capo as separate strings/numbers.
+Transposes `key` (e.g. `"G"`, `"Am"`, `"Bb"`) up by `capo` semitones. Preserves
+qualifier (`m`, `dim`, etc.) and derives accidental preference from the written key.
+
+```ts
+soundingKeyOf('G', 2)   // → "A"
+soundingKeyOf('Am', 3)  // → "Cm"
+soundingKeyOf('Eb', 2)  // → "F"
+```
+
 #### `renderText(song, options?): string`
 
 Chords-over-lyrics monospace text. Tab blocks verbatim.
@@ -185,10 +212,56 @@ Convert loose human-written text to canonical ChordPro.
 Detection rules (in order):
 1. First content line → `title`
 2. Second content line → `artist`
-3. `Key:` / `Tom:` / `Tempo:` / `BPM:` / `Capo:` / `Time:` / `CCLI:` → metadata
-4. Section headings (`Verse 1`, `Chorus`, `[Bridge]`, `Refrão`, `Verso`, `Ponte`) → `start_of_*`/`end_of_*` pairs
-5. Chord-above-lyrics pairs — merged into inline `[C]word` tokens
+3. Metadata lines (see table below) → corresponding ChordPro directives
+4. Section headings (see table below) → `start_of_*`/`end_of_*` pairs
+5. Chord-above-lyrics pairs — merged into inline `[C]word` tokens using Unicode-aware column alignment
 6. Everything else → lyric content
+
+Repeat markers (`(x2)`, `(2x)`, `(3 vezes)`, …) are detected:
+- On a section heading line → `{meta: repeat N}` emitted first inside the section
+- On a standalone line → `{comment: (xN)}`
+- At the end of a lyric → `[*xN]` annotation appended
+
+**Metadata lines recognized** (all case-insensitive, Portuguese and English):
+
+| Input line | Directive emitted |
+|---|---|
+| `Tom: G` / `Key: G` | `{key: G}` |
+| `Tom: A (Capo 2)` | `{key: A}` + `{capo: 2}` |
+| `Tom com Capo 2: G` | `{key: G}` + `{capo: 2}` |
+| `Tom (Capo 2): G` | `{key: G}` + `{capo: 2}` |
+| `Tom real: A` | `{meta: tom_real A}` |
+| `Capo: 2` / `Capo 2` | `{capo: 2}` |
+| `Afinação: meio tom abaixo` | `{meta: afinacao meio tom abaixo}` |
+| `BPM: 76` / `Tempo: 76` | `{tempo: 76}` |
+| `Andamento: 120` | `{tempo: 120}` |
+| `Andamento: Moderato` | `{meta: andamento Moderato}` |
+| `Ritmo: Baião` | `{meta: ritmo Baião}` |
+| `Compasso: 3/4` | `{time: 3/4}` |
+| `Compasso: Binário` | `{meta: compasso Binário}` |
+| `Fórmula de compasso: 4/4` | `{time: 4/4}` |
+| `Artista: X` | `{artist: X}` |
+| `Título: X` / `Titulo: X` | `{title: X}` |
+| `Álbum: X` / `Album: X` | `{album: X}` |
+| `Ano: 1994` | `{year: 1994}` |
+| `Compositor: X` / `Composição: X` | `{composer: X}` |
+| `Letrista: X` | `{lyricist: X}` |
+| `Copyright: X` | `{copyright: X}` |
+| `CCLI: N` | `{ccli: N}` |
+
+**Section headings recognized**:
+
+| Heading | Env | Notes |
+|---|---|---|
+| `Verse N` / `Verso N` / `Estrofe N` | `verse` | numbered or bare |
+| `Chorus` / `Coro` / `Refrão` / `Refrao` | `chorus` | |
+| `Pre-Chorus` / `Pré-Refrão` / `Pre-Refrao` / `Pré-Coro` / `Pre-Coro` | `prechorus` | |
+| `Bridge` / `Ponte` | `bridge` | |
+| `Intro` / `Introdução` / `Introducao` / `Abertura` | `verse` | with label |
+| `Outro` / `Final` / `Finalização` / `Finalizacao` / `Coda` | `verse` | with label |
+| `Solo N` / `Instrumental` / `Riff N` / `Interlúdio N` / `Interludio N` | `verse` | with label |
+
+All headings accept optional `[brackets]`, optional trailing colon, optional number suffix, and optional `(xN)` repeat count.
 
 English and Portuguese headings are supported.
 
