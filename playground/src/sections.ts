@@ -7,9 +7,10 @@
 import {
   parse, serialize, parseChord, transpose,
   tokenize, renderHtml, renderText, parseFreeText,
-  guessKey, getChordShape, toNashville,
+  guessKey, getChordShape, toNashville, fromNashville,
+  applyTransposeDirectives, resolveChorus, collectChorusCandidates,
   KNOWN_DIRECTIVES, ALL_EXTENSIONS,
-  type Song, type ParseOptions, type TransposeOptions,
+  type Song, type ParseOptions, type TransposeOptions, type ChordDef,
 } from 'chordpro-core';
 
 import { renderChordDiagram } from './chordDiagram.js';
@@ -217,6 +218,85 @@ Lyric line with no chords here.
   },
 
   {
+    id: 'chorus-ref', group: 'The format', title: 'Chorus references',
+    build(container) {
+      const sec = document.createElement('section');
+      sec.id = 'chorus-ref'; sec.className = 'doc-section';
+      sec.innerHTML = '<h2 class="section-title">Chorus references</h2>';
+
+      const card = document.createElement('div');
+      card.className = 'doc-card';
+
+      card.innerHTML = `
+<div class="prose-block">
+<p>The standalone <code>{chorus}</code> directive (no <code>start_of_</code>) is a <em>reference</em> to a previously-defined chorus — it means "repeat the chorus here". The model stores it as a <code>ChorusReference</code> node with an optional <code>label</code> field.</p>
+<p><code>resolveChorus(song, ref)</code> resolves the reference by returning the <strong>last</strong> matching <code>SectionNode</code> that precedes the reference in document order (matching by label when one is given). <code>collectChorusCandidates</code> returns all matches.</p>
+<pre class="prose-code">resolveChorus(song: Song, ref: ChorusReference): SectionNode | null
+collectChorusCandidates(song: Song, ref: ChorusReference): SectionNode[]</pre>
+</div>
+<div class="example-area">
+  <div class="example-pane input-pane">
+    <div class="pane-label">Editor</div>
+    <textarea class="code-editor" id="cref-editor" spellcheck="false">{title: My Song}
+{key: G}
+
+{start_of_chorus label="Hook"}
+[G]How great [C]is our [G]God
+[D]Sing with [Em]me how [C]great is [G]our God
+{end_of_chorus}
+
+{start_of_verse}
+[G]Amazing [C]grace, how [G]sweet the sound
+{end_of_verse}
+
+{chorus: Hook}
+
+{start_of_verse}
+[G]When we've been there [C]ten thousand years
+{end_of_verse}
+
+{chorus: Hook}</textarea>
+  </div>
+  <div class="example-pane output-pane">
+    <div class="pane-label">Resolved chorus content</div>
+    <div class="example-output" id="cref-output"></div>
+  </div>
+</div>`;
+
+      sec.appendChild(card);
+      container.appendChild(sec);
+
+      const editor = card.querySelector<HTMLTextAreaElement>('#cref-editor')!;
+      const output = card.querySelector<HTMLElement>('#cref-output')!;
+
+      function update() {
+        const song = parse(editor.value);
+        const refs = song.lines.filter(l => l.type === 'chorus_reference');
+        if (refs.length === 0) {
+          output.innerHTML = '<p class="dim">No <code>{chorus}</code> references found in the song.</p>';
+          return;
+        }
+        const parts: string[] = [];
+        refs.forEach((ref, i) => {
+          if (ref.type !== 'chorus_reference') return;
+          const resolved = resolveChorus(song, ref);
+          const all = collectChorusCandidates(song, ref);
+          const labelStr = ref.label ? ` label="${esc(ref.label)}"` : '';
+          parts.push(`<div class="cref-block">
+<div class="cref-header">Reference #${i + 1}: <code>{chorus${labelStr}}</code> — ${all.length} candidate(s), resolves to <strong>${resolved ? `"${esc(resolved.label ?? 'unlabeled')}"` : 'null'}</strong></div>
+${resolved ? `<div class="cref-content">${renderedPreview(renderHtml({ ...song, lines: resolved.lines }, { includeHeader: false }))}</div>` : '<p class="dim">No matching chorus found before this reference.</p>'}
+</div>`);
+        });
+        output.innerHTML = parts.join('');
+      }
+
+      const deb = debounce(update, 250);
+      editor.addEventListener('input', deb);
+      update();
+    },
+  },
+
+  {
     id: 'inline-chords', group: 'The format', title: 'Inline chords',
     build(container) {
       const { el } = docCard({
@@ -300,6 +380,84 @@ G2AB c2BA | G4 G4 |
         onUpdate(src, output) { renderOutput(src, output); },
       });
       mount(container, 'tab-grid', 'Tab & grid blocks', el);
+    },
+  },
+
+  {
+    id: 'chord-def', group: 'The format', title: 'Chord definitions ({define})',
+    build(container) {
+      const sec = document.createElement('section');
+      sec.id = 'chord-def'; sec.className = 'doc-section';
+      sec.innerHTML = '<h2 class="section-title">Chord definitions ({define})</h2>';
+
+      const card = document.createElement('div');
+      card.className = 'doc-card';
+      card.innerHTML = `
+<div class="prose-block">
+<p><code>{define}</code> and <code>{chord}</code> directives declare a chord fingering. The parser emits a structured <code>ChordDef</code> model node — not a generic directive — so consuming code can read the fields directly:</p>
+<pre class="prose-code">interface ChordDef {
+  type: 'chord_def';
+  name: string;           // e.g. "Am"
+  originalName: 'define' | 'chord';
+  baseFret?: number;      // 1-indexed fret position
+  frets?: number[];       // per-string frets (-1 = muted, 0 = open)
+  fingers?: number[];     // optional finger assignments
+  keys?: number[];        // keyboard: intervals from root
+  copy?: string;          // inherit from another chord name
+  display?: string;       // displayed name (may differ)
+  source: string;         // original text for round-trip
+}</pre>
+<p><code>getChordShape(name, instrument, song?)</code> reads <code>ChordDef</code> nodes directly from the song when a third argument is passed — song-defined chords take priority over the built-in seed table.</p>
+</div>
+<div class="example-area">
+  <div class="example-pane input-pane">
+    <div class="pane-label">Editor</div>
+    <textarea class="code-editor" id="cdef-editor" spellcheck="false">{define: Xmaj7 base-fret 1 frets x 3 2 0 0 0 fingers 0 3 2 0 0 0}
+{define: Ysus4 base-fret 2 frets x 1 3 3 1 1 fingers 0 1 3 4 1 1}
+
+{title: Song with custom chords}
+
+[Xmaj7]Swing [Ysus4]low, sweet [C]chariot</textarea>
+  </div>
+  <div class="example-pane output-pane">
+    <div class="pane-label">Parsed ChordDef nodes + diagram</div>
+    <div class="example-output" id="cdef-output"></div>
+  </div>
+</div>`;
+
+      sec.appendChild(card);
+      container.appendChild(sec);
+
+      const editor = card.querySelector<HTMLTextAreaElement>('#cdef-editor')!;
+      const output = card.querySelector<HTMLElement>('#cdef-output')!;
+
+      function update() {
+        const song = parse(editor.value);
+        const defs = song.lines.filter((l): l is ChordDef => l.type === 'chord_def');
+        if (defs.length === 0) {
+          output.innerHTML = '<p class="dim">No <code>{define}</code> or <code>{chord}</code> directives found.</p>';
+          return;
+        }
+        const parts: string[] = [];
+        for (const def of defs) {
+          const shape = getChordShape(def.name, 'guitar', song);
+          const diag = shape ? `<div class="diag-wrap">${renderChordDiagram(def.name, shape)}</div>` : '';
+          const data: Partial<ChordDef> & { type?: string } = { ...def };
+          delete (data as Record<string,unknown>)['source'];
+          parts.push(`<div class="cdef-block">
+<div class="cdef-name">{${def.originalName}: ${esc(def.name)}}</div>
+<div class="cdef-row">
+  ${diag}
+  <pre class="shape-data cdef-json">${esc(JSON.stringify(data, null, 2))}</pre>
+</div>
+</div>`);
+        }
+        output.innerHTML = parts.join('');
+      }
+
+      const deb = debounce(update, 250);
+      editor.addEventListener('input', deb);
+      update();
     },
   },
 
@@ -546,31 +704,141 @@ InvalidRoot`,
   },
 
   {
+    id: 'in-song-transpose', group: 'Transforms', title: 'In-song {transpose}',
+    build(container) {
+      const sec = document.createElement('section');
+      sec.id = 'in-song-transpose'; sec.className = 'doc-section';
+      sec.innerHTML = '<h2 class="section-title">In-song {transpose} directive</h2>';
+
+      const card = document.createElement('div');
+      card.className = 'doc-card';
+      card.innerHTML = `
+<div class="prose-block">
+<p>A <code>{transpose: N}</code> directive placed <em>inside</em> a song shifts all chords that follow it by N semitones — without affecting chords before it. This creates a modulation effect. The renderers apply it automatically.</p>
+<ul>
+  <li><code>{transpose: 2}</code> — raise by 2 semitones from this point</li>
+  <li><code>{transpose: 2s}</code> / <code>{transpose: 2f}</code> — force sharps or flats</li>
+  <li><code>{transpose}</code> — cancel: reset to 0 semitones</li>
+</ul>
+<p>The directive node is preserved in the AST for round-trip fidelity. <code>applyTransposeDirectives(song)</code> is also exported so you can apply it explicitly before passing the song to your own renderer.</p>
+</div>
+<div class="example-area">
+  <div class="example-pane input-pane">
+    <div class="pane-label">Editor</div>
+    <textarea class="code-editor" id="ist-editor" spellcheck="false">{title: Modulating Song}
+{key: G}
+
+{start_of_verse label="Verse — key of G"}
+[G]Amazing [C]grace, how [G]sweet the [D]sound
+[G]That saved a [Em]wretch like [D]me
+{end_of_verse}
+
+# Modulate up 2 semitones (G → A)
+{transpose: 2}
+
+{start_of_chorus label="Chorus — key of A"}
+[G]How great [C]is our [G]God
+[D]Sing with [Em]me how [C]great is [G]our God
+{end_of_chorus}
+
+# Cancel transposition
+{transpose}
+
+{start_of_verse label="Back to G"}
+[G]When we've [C]been there [G]ten thousand [D]years
+{end_of_verse}</textarea>
+  </div>
+  <div class="example-pane output-pane">
+    <div class="pane-label">Rendered (transpose applied)</div>
+    <div class="example-output" id="ist-output"></div>
+  </div>
+</div>`;
+
+      sec.appendChild(card);
+      container.appendChild(sec);
+
+      const editor = card.querySelector<HTMLTextAreaElement>('#ist-editor')!;
+      const output = card.querySelector<HTMLElement>('#ist-output')!;
+
+      function update() {
+        const song = parse(editor.value);
+        output.innerHTML = renderedPreview(renderHtml(song, { includeHeader: false }));
+      }
+
+      const deb = debounce(update, 250);
+      editor.addEventListener('input', deb);
+      update();
+    },
+  },
+
+  {
     id: 'nashville', group: 'Transforms', title: 'Nashville numbers',
     build(container) {
-      const { el } = docCard({
-        prose: `
-<p>The Nashville Number System replaces note names with scale degrees relative to a key. <code>1</code>&nbsp;=&nbsp;the root of the key, <code>4</code>&nbsp;=&nbsp;the 4th degree, <code>5</code>&nbsp;=&nbsp;the 5th, and so on.</p>
-<p>The library provides <code>toNashville(song, key)</code> and <code>fromNashville(song, key)</code> in its public API. <strong>v1 note:</strong> these ship as typed stubs with passthrough behaviour — the return value is the song unchanged. Full number mapping is planned for a future release.</p>
-<p>The API is stable; consuming code that calls <code>toNashville</code> today will continue to work when the implementation lands. The section below shows the API call and the stub result honestly.</p>`,
-        example: `{key: G}
+      const sec = document.createElement('section');
+      sec.id = 'nashville'; sec.className = 'doc-section';
+      sec.innerHTML = '<h2 class="section-title">Nashville numbers</h2>';
 
-[G]Swing [D]low, sweet [C]chari[G]ot
-[Em]Comin' for to [D]carry me [G]home`,
-        outputLabel: 'Nashville output (stub)',
-        onUpdate(src, output) {
-          const song = parse(src);
-          const key = song.metadata.get('key') ?? 'G';
-          const result = toNashville(song, key);
-          output.innerHTML = `
-<div class="nash-note">
-  <strong>toNashville(song, "${esc(key)}")</strong> — v1 stub: passes song through unchanged.<br>
-  Full Nashville mapping ships in a future version.
+      const card = document.createElement('div');
+      card.className = 'doc-card';
+      card.innerHTML = `
+<div class="prose-block">
+<p>The Nashville Number System replaces note names with scale degrees relative to a key: <code>1</code>&nbsp;=&nbsp;root, <code>4</code>&nbsp;=&nbsp;fourth degree, <code>5</code>&nbsp;=&nbsp;fifth, and so on. Chromatic roots use a flat prefix: F in G&nbsp;→&nbsp;<code>b7</code>, Bb in G&nbsp;→&nbsp;<code>b3</code>. Qualifiers, extensions, and bass notes are preserved: <code>Am7</code> in C&nbsp;→&nbsp;<code>6m7</code>.</p>
+<p><code>toNashville(song, key)</code> converts chord names to degrees. <code>fromNashville(song, key)</code> converts back. <code>fromNashville(toNashville(song, key), key)</code> is identity on all diatonic chord names.</p>
 </div>
-${renderedPreview(renderHtml(result, { includeHeader: false }))}`;
-        },
-      });
-      mount(container, 'nashville', 'Nashville numbers', el);
+<div class="nash-controls">
+  <label class="nash-key-label">Key:
+    <input type="text" id="nash-key" class="chord-name-input nash-key-input" value="G" maxlength="4" aria-label="Key" />
+  </label>
+</div>
+<div class="example-area">
+  <div class="example-pane input-pane">
+    <div class="pane-label">ChordPro source</div>
+    <textarea class="code-editor" id="nash-editor" spellcheck="false">{title: Swing Low}
+{key: G}
+
+{start_of_verse}
+[G]Swing [D]low, sweet [C]chari[G]ot
+[Em]Comin' [D]for to [C]carry me [G]home
+{end_of_verse}
+
+{start_of_chorus}
+[G]Carry [D]me [C]home, sweet [G]chariot
+[Em]Comin' [D]for to [Am7]carry me [G]home
+{end_of_chorus}</textarea>
+  </div>
+  <div class="nash-output-col">
+    <div class="example-pane output-pane">
+      <div class="pane-label">→ Nashville numbers</div>
+      <div class="example-output" id="nash-to-out"></div>
+    </div>
+    <div class="example-pane output-pane">
+      <div class="pane-label">← Back to named chords</div>
+      <div class="example-output" id="nash-from-out"></div>
+    </div>
+  </div>
+</div>`;
+
+      sec.appendChild(card);
+      container.appendChild(sec);
+
+      const editor = card.querySelector<HTMLTextAreaElement>('#nash-editor')!;
+      const keyInput = card.querySelector<HTMLInputElement>('#nash-key')!;
+      const toOut = card.querySelector<HTMLElement>('#nash-to-out')!;
+      const fromOut = card.querySelector<HTMLElement>('#nash-from-out')!;
+
+      function update() {
+        const key = keyInput.value.trim() || 'G';
+        const song = parse(editor.value);
+        const nashSong = toNashville(song, key);
+        const backSong = fromNashville(nashSong, key);
+        toOut.innerHTML = renderedPreview(renderHtml(nashSong, { includeHeader: false }));
+        fromOut.innerHTML = renderedPreview(renderHtml(backSong, { includeHeader: false }));
+      }
+
+      const deb = debounce(update, 250);
+      editor.addEventListener('input', deb);
+      keyInput.addEventListener('input', deb);
+      update();
     },
   },
 

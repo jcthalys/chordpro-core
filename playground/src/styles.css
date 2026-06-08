@@ -514,12 +514,40 @@ code {
 
 /* ── Nashville ──────────────────────────────────────────────────────────── */
 
-.nash-note {
-  background: var(--surface-2); border: 1px solid var(--border-2);
-  border-left: 3px solid var(--warn); border-radius: var(--radius);
-  padding: 8px 12px; font-size: 0.82rem; color: var(--text-muted);
+.nash-controls {
+  display: flex; align-items: center; gap: 12px;
   margin-bottom: 12px;
 }
+.nash-key-label {
+  font-size: 0.82rem; color: var(--text-2);
+  display: flex; align-items: center; gap: 6px;
+}
+.nash-key-input { width: 56px; text-align: center; font-weight: 700; }
+.nash-output-col { display: flex; flex-direction: column; gap: 10px; flex: 1; min-width: 0; }
+
+/* ── Chorus references ───────────────────────────────────────────────────── */
+
+.cref-block { margin-bottom: 16px; }
+.cref-header {
+  font-size: 0.82rem; color: var(--text-2);
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding: 6px 10px;
+}
+.cref-content { border: 1px solid var(--border); border-top: none; border-radius: 0 0 var(--radius) var(--radius); padding: 8px; }
+
+/* ── Chord definitions ───────────────────────────────────────────────────── */
+
+.cdef-block { margin-bottom: 16px; }
+.cdef-name {
+  font-family: var(--font-mono); font-size: 0.82rem;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding: 5px 10px; color: var(--text-2);
+}
+.cdef-row { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--border); border-top: none; border-radius: 0 0 var(--radius) var(--radius); padding: 10px; }
+.diag-wrap { flex-shrink: 0; }
+.cdef-json { flex: 1; min-width: 0; margin: 0; font-size: 0.75rem; }
 
 /* ── Key detection ──────────────────────────────────────────────────────── */
 
