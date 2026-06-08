@@ -199,6 +199,23 @@ This text block is preserved verbatim.
   },
 
   {
+    label: 'Repeat annotations',
+    source: `{title: Repeat Annotation Examples}
+
+# Case 1: repeat marker on section heading → {meta: repeat 2} inside section
+{start_of_chorus label="Chorus"}
+{meta: repeat 2}
+[G]My chains are [D]gone
+{end_of_chorus}
+
+# Case 2: standalone repeat line → {comment: (x2)}
+{comment: (x2)}
+
+# Case 3: end-of-lyric annotation → [*x2]
+[G]Amazing [C]grace [*x2]`,
+  },
+
+  {
     label: 'Broken input (warnings + recovery)',
     source: `{title: Deliberately Broken
 {artist: Missing close brace above
@@ -246,3 +263,40 @@ G      C     G
 Tis grace hath brought me safe thus far
 G      D     G
 And grace will lead me home`;
+
+export const FREE_TEXT_EXAMPLES: Example[] = [
+  { label: 'Amazing Grace (English)', source: FREE_TEXT_EXAMPLE },
+  {
+    label: 'Brazilian — Cifra Club style',
+    source: `Evidências
+Chitãozinho & Xororó
+
+Tom: A (Capo 2)
+BPM: 76
+Ritmo: Country Sertanejo
+
+[Intro]
+G  D  Em  C  (x2)
+
+[Verso 1]
+G              D
+Eu sei que tu me amas
+       Em             C
+Mais não consigo te amar
+
+[Pré-Refrão]
+     G        D
+E a culpa não é tua
+     Em         C
+Nem muito menos minha
+
+[Refrão] (x2)
+G            D
+Evidências, meu amor
+    Em              C
+São tantas evidências
+
+[Final]
+G`,
+  },
+];

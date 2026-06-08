@@ -9,12 +9,13 @@ import {
   tokenize, renderHtml, renderText, parseFreeText,
   guessKey, getChordShape, toNashville, fromNashville,
   applyTransposeDirectives, resolveChorus, collectChorusCandidates,
+  soundingKey,
   KNOWN_DIRECTIVES, ALL_EXTENSIONS,
   type Song, type ParseOptions, type TransposeOptions, type ChordDef,
 } from 'chordpro-core';
 
 import { renderChordDiagram } from './chordDiagram.js';
-import { EXAMPLES, FREE_TEXT_EXAMPLE } from './examples.js';
+import { EXAMPLES, FREE_TEXT_EXAMPLE, FREE_TEXT_EXAMPLES } from './examples.js';
 import {
   esc, debounce, songToJson, warningsHtml, metaTableHtml,
   docCard, renderedPreview, renderTokens, TOKEN_LEGEND,
@@ -32,9 +33,18 @@ export interface Section extends NavSection {
 
 // ─── Helper: rendered output ──────────────────────────────────────────────────
 
+function soundingKeyBar(song: Song): string {
+  const key = song.metadata.get('key');
+  const capo = song.metadata.get('capo');
+  if (!key || !capo || capo === '0') return '';
+  const sk = soundingKey(song);
+  if (!sk || sk === key) return '';
+  return `<div class="sounding-key-bar">Written key: <strong>${esc(key)}</strong> · Capo: <strong>${esc(capo)}</strong> · Sounds in: <strong>${esc(sk)}</strong></div>`;
+}
+
 function renderOutput(src: string, output: HTMLElement, opts: ParseOptions = {}) {
   const song = parse(src, opts);
-  output.innerHTML = renderedPreview(renderHtml(song, { includeHeader: true }));
+  output.innerHTML = soundingKeyBar(song) + renderedPreview(renderHtml(song, { includeHeader: true }));
 }
 
 // ─── Section definitions ──────────────────────────────────────────────────────
@@ -1007,7 +1017,10 @@ Plain lyric text here.
 </div>
 <div class="ft-layout">
   <div class="ft-col">
-    <div class="pane-label">Free-text input (loose chord sheet)</div>
+    <div class="ft-input-header">
+      <div class="pane-label">Free-text input (loose chord sheet)</div>
+      <select id="ft-preset" class="instrument-select" aria-label="Load preset example"><option value="">Load example…</option></select>
+    </div>
     <textarea id="ft-input" class="code-editor ft-editor" spellcheck="false" aria-label="Free-text input"></textarea>
   </div>
   <div class="ft-col">
@@ -1023,8 +1036,25 @@ Plain lyric text here.
       const ftInput = card.querySelector<HTMLTextAreaElement>('#ft-input')!;
       const ftMeta = card.querySelector<HTMLElement>('#ft-meta')!;
       const ftOutput = card.querySelector<HTMLPreElement>('#ft-output')!;
+      const ftPreset = card.querySelector<HTMLSelectElement>('#ft-preset')!;
+
+      FREE_TEXT_EXAMPLES.forEach((ex, i) => {
+        const opt = document.createElement('option');
+        opt.value = String(i); opt.textContent = ex.label;
+        ftPreset.appendChild(opt);
+      });
 
       ftInput.value = FREE_TEXT_EXAMPLE;
+
+      ftPreset.addEventListener('change', () => {
+        const idx = parseInt(ftPreset.value);
+        if (isNaN(idx)) return;
+        const ex = FREE_TEXT_EXAMPLES[idx];
+        if (!ex) return;
+        ftInput.value = ex.source;
+        ftPreset.value = '';
+        updateFt();
+      });
 
       function updateFt() {
         const { chordpro, metadata } = parseFreeText(ftInput.value);
@@ -1307,7 +1337,7 @@ function buildScratchPad(container: HTMLElement) {
     const panel = sec.querySelector<HTMLElement>(`#sc-panel-${tab}`)!;
 
     if (tab === 'rendered') {
-      panel.innerHTML = renderedPreview(renderHtml(displaySong, { includeHeader: true }));
+      panel.innerHTML = soundingKeyBar(displaySong) + renderedPreview(renderHtml(displaySong, { includeHeader: true }));
     } else if (tab === 'text') {
       panel.querySelector('pre')!.textContent = renderText(displaySong, { includeHeader: true });
     } else if (tab === 'ast') {
