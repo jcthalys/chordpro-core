@@ -9,40 +9,87 @@ import { getChordShape } from './chordShapes.js';
 import { toNashville, fromNashville } from '../chords/nashville.js';
 import { parse } from '../parser/parse.js';
 
-describe('guessKey', () => {
-  it('detects key G from G-heavy song', () => {
-    const src = '[G]word [D]two [Em]three [C]four [G]five [D]six [G]seven';
-    const result = guessKey(src);
-    expect(result).not.toBeNull();
-    expect(result?.key).toBe('G');
-    expect(result!.confidence).toBeGreaterThan(0);
-  });
-
+describe('guessKey — diatonic coverage scoring', () => {
   it('returns null when no chords', () => {
     expect(guessKey('no chords here')).toBeNull();
   });
 
-  it('returns null when most-frequent root appears fewer than 2 times', () => {
-    // Each chord appears once
-    const src = '[C]one [D]two [E]three [F]four';
-    const result = guessKey(src);
-    // C appears once — should be null
-    expect(result).toBeNull();
+  it('returns null when fewer than 2 total chord occurrences', () => {
+    expect(guessKey('[C]only')).toBeNull();
   });
 
   it('accepts a Song object', () => {
     const song = parse('[G]word [G]two [D]three');
-    const result = guessKey(song);
-    expect(result).not.toBeNull();
+    expect(guessKey(song)).not.toBeNull();
   });
 
   it('confidence is between 0 and 1', () => {
-    const src = '[G]one [G]two [D]three';
-    const result = guessKey(src);
-    if (result) {
-      expect(result.confidence).toBeGreaterThan(0);
-      expect(result.confidence).toBeLessThanOrEqual(1);
-    }
+    const result = guessKey('[G]one [G]two [D]three [C]four');
+    expect(result!.confidence).toBeGreaterThan(0);
+    expect(result!.confidence).toBeLessThanOrEqual(1);
+  });
+
+  // ── Major key detection ───────────────────────────────────────────────────
+
+  it('detects G major (I-V-vi-IV)', () => {
+    // G D Em C — classic I-V-vi-IV in G
+    expect(guessKey('[G]a [D]b [Em]c [C]d [G]e [D]f [G]g')?.key).toBe('G');
+  });
+
+  it('detects C major', () => {
+    expect(guessKey('[C]a [G]b [Am]c [F]d [C]e [Em]f [C]g')?.key).toBe('C');
+  });
+
+  it('detects D major', () => {
+    expect(guessKey('[D]a [A]b [Bm]c [G]d [D]e [A]f [D]g')?.key).toBe('D');
+  });
+
+  it('detects A major', () => {
+    expect(guessKey('[A]a [E]b [F#m]c [D]d [A]e [E]f [A]g')?.key).toBe('A');
+  });
+
+  it('detects E major', () => {
+    expect(guessKey('[E]a [B]b [C#m]c [A]d [E]e [B]f [E]g')?.key).toBe('E');
+  });
+
+  it('detects F major', () => {
+    expect(guessKey('[F]a [C]b [Dm]c [Bb]d [F]e [C]f [F]g')?.key).toBe('F');
+  });
+
+  it('detects Bb major', () => {
+    expect(guessKey('[Bb]a [F]b [Gm]c [Eb]d [Bb]e [F]f [Bb]g')?.key).toBe('Bb');
+  });
+
+  // ── Minor key detection ───────────────────────────────────────────────────
+
+  it('detects Am (i-VII-VI-VII pattern)', () => {
+    // Am G F G Am — classic Am progression
+    expect(guessKey('[Am]a [G]b [F]c [G]d [Am]e [Em]f [Am]g')?.key).toBe('Am');
+  });
+
+  it('detects Em', () => {
+    expect(guessKey('[Em]a [D]b [C]c [D]d [Em]e [Am]f [Em]g')?.key).toBe('Em');
+  });
+
+  it('detects Dm', () => {
+    expect(guessKey('[Dm]a [C]b [Bb]c [C]d [Dm]e [Dm]f [Gm]g')?.key).toBe('Dm');
+  });
+
+  it('distinguishes G major from Em (relative minor) by tonic frequency', () => {
+    // Song clearly tonic on G, not Em
+    const src = '[G]a [G]b [D]c [C]d [G]e [Em]f [G]g [D]h [G]i';
+    expect(guessKey(src)?.key).toBe('G');
+  });
+
+  it('distinguishes Am from C major when minor tonic dominates', () => {
+    const src = '[Am]a [Am]b [G]c [F]d [Am]e [Em]f [Am]g';
+    expect(guessKey(src)?.key).toBe('Am');
+  });
+
+  it('returns high confidence for fully diatonic song', () => {
+    // All chords diatonic to G major
+    const result = guessKey('[G]a [D]b [Em]c [C]d [G]e [Am]f [Bm]g [G]h');
+    expect(result!.confidence).toBeGreaterThan(0.85);
   });
 });
 
