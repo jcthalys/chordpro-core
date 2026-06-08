@@ -2,9 +2,6 @@
  * parseFreeText — Tier 2 auxiliary helper.
  * Converts loose human-written text to canonical ChordPro + extracted metadata.
  * NOT part of the ChordPro format.
- *
- * @remarks
- * This is an auxiliary helper, not part of the ChordPro format specification.
  */
 
 import { parseChord } from '../chords/parseChord.js';
@@ -20,151 +17,258 @@ export interface ParseFreeTextResult {
   warnings: Warning[];
 }
 
+// ─── Repeat-suffix helpers ─────────────────────────────────────────────────────
+
+/** Matches repeat-count suffixes like (x2), (2x), (2 vezes), (repete 3), (repeat 2), (repetir 2). */
+const REPEAT_SUFFIX_RE =
+  /\s*\(\s*(?:x(\d+)|(\d+)x|(\d+)\s+vezes?|repete?\s+(\d+)(?:\s+vezes?)?|repeat\s+(\d+)|repetir\s+(\d+))\s*\)\s*$/i;
+
+function extractRepeatSuffix(text: string): { text: string; count?: number } {
+  const m = text.match(REPEAT_SUFFIX_RE);
+  if (!m) return { text };
+  const raw = m[1] ?? m[2] ?? m[3] ?? m[4] ?? m[5] ?? m[6] ?? '1';
+  const count = parseInt(raw, 10);
+  return { text: text.slice(0, m.index!).trim(), count };
+}
+
 // ─── Section heading detection ────────────────────────────────────────────────
 
 interface HeadingMatch {
   kind: 'chorus' | 'verse' | 'bridge' | 'prechorus';
   label?: string;
+  repeatCount?: number;
 }
 
 function matchHeading(line: string): HeadingMatch | null {
   const trimmed = line.trim();
-  // Bracketed: [Chorus], [Verse 1], [Bridge], [Refrão]
-  const bracketMatch = trimmed.match(/^\[([^\]]+)\]$/);
-  const text = bracketMatch ? bracketMatch[1]!.trim() : trimmed;
 
-  const lower = text.toLowerCase();
+  // Strip repeat suffix (e.g. [Refrão] (x2) → text=[Refrão], count=2)
+  const { text: withoutRepeat, count: repeatCount } = extractRepeatSuffix(trimmed);
 
-  // Chorus / Coro / Refrão
-  if (/^(chorus|coro|refr[aã]o|refrão)/i.test(text)) return { kind: 'chorus', label: text };
-  // Verse / Verso
-  if (/^(verse|verso)/i.test(text)) return { kind: 'verse', label: text };
-  // Bridge / Ponte
-  if (/^(bridge|ponte)/i.test(text)) return { kind: 'bridge', label: text };
-  // Pre-chorus / Pré-refrão
-  if (/^(pre[- ]?chorus|pré[- ]?refr[aã]o|pre[- ]?coro)/i.test(text)) return { kind: 'prechorus', label: text };
+  // Strip brackets: [Text] → Text
+  const bracketMatch = withoutRepeat.match(/^\[([^\]]+)\]$/);
+  const rawText = bracketMatch ? bracketMatch[1]!.trim() : withoutRepeat;
+  const isBracketed = !!bracketMatch;
 
-  // Bare single-word or multi-word headings without bracket
-  if (!bracketMatch) {
-    // Only match if it looks like a heading (short, titlecase-ish)
-    if (/^(chorus|verse|bridge|pre[- ]?chorus|coro|refr[aã]o|verso|ponte)/i.test(lower)) {
-      return { kind: lowerToKind(lower), label: text };
-    }
-    return null;
+  // Strip optional trailing colon
+  const text = rawText.endsWith(':') ? rawText.slice(0, -1).trim() : rawText;
+  if (!text) return null;
+
+  let kind: HeadingMatch['kind'] | null = null;
+
+  // Pre-chorus — check before chorus to avoid "pre" swallowing "chorus"
+  if (/^pr[eé][- ]?(?:refrão|refrao|coro)\b|^pr[eé][- ]?chorus\b/i.test(text)) {
+    kind = 'prechorus';
+  } else if (/^(?:chorus|coro|refr[aã]o)\b/i.test(text)) {
+    kind = 'chorus';
+  } else if (/^(?:verse|verso|estrofe)\b/i.test(text)) {
+    kind = 'verse';
+  } else if (/^(?:bridge|ponte)\b/i.test(text)) {
+    kind = 'bridge';
+  } else if (/^(?:intro|introdu[cç][aã]o|abertura)\b/i.test(text)) {
+    kind = 'verse';
+  } else if (/^(?:outro|final|finaliza[cç][aã]o|coda)\b/i.test(text)) {
+    kind = 'verse';
+  } else if (/^(?:interl[uú]dio|solo|instrumental|riff)\b/i.test(text)) {
+    kind = 'verse';
   }
 
-  // Bracketed heading matching above
-  if (/^(chorus|coro|refr[aã]o)/i.test(lower)) return { kind: 'chorus', label: text };
-  if (/^(verse|verso)/i.test(lower)) return { kind: 'verse', label: text };
-  if (/^(bridge|ponte)/i.test(lower)) return { kind: 'bridge', label: text };
-  if (/^(pre[- ]?chorus|pré[- ]?refr[aã]o)/i.test(lower)) return { kind: 'prechorus', label: text };
+  // For non-bracketed bare text, only match known heading keywords (prevents lyrics being
+  // misidentified as headings). Bracketed text matches unconditionally when kind found above.
+  if (!kind) return null;
+  if (!isBracketed && kind === null) return null;
 
-  return null;
-}
-
-function lowerToKind(lower: string): 'chorus' | 'verse' | 'bridge' | 'prechorus' {
-  if (/chorus|coro|refr/.test(lower)) return 'chorus';
-  if (/verse|verso/.test(lower)) return 'verse';
-  if (/bridge|ponte/.test(lower)) return 'bridge';
-  return 'prechorus';
+  const result: HeadingMatch = { kind, label: text };
+  if (repeatCount !== undefined) result.repeatCount = repeatCount;
+  return result;
 }
 
 // ─── Metadata line detection ──────────────────────────────────────────────────
 
-interface MetaLine {
-  key: string;
+interface MetaEntry {
+  /** Key used in the metadata Map. */
+  mapKey: string;
+  /** Value stored in metadata. */
   value: string;
 }
 
-const META_PATTERNS: Array<[RegExp, string]> = [
-  [/^key\s*:\s*(.+)$/i, 'key'],
-  [/^tom\s*:\s*(.+)$/i, 'key'],       // Portuguese alias for Key
-  [/^tempo\s*:\s*(.+)$/i, 'tempo'],
-  [/^bpm\s*:\s*(.+)$/i, 'tempo'],
-  [/^capo\s*:\s*(.+)$/i, 'capo'],
-  [/^time\s*:\s*(.+)$/i, 'time'],
-  [/^ccli\s*:\s*(.+)$/i, 'ccli'],
-];
+/** Directives that emit as {name: value} directly. Others emit as {meta: name value}. */
+const STANDARD_DIRECTIVES = new Set([
+  'key', 'capo', 'tempo', 'time', 'ccli', 'artist', 'title',
+  'album', 'year', 'composer', 'lyricist', 'copyright',
+]);
 
-function matchMetaLine(line: string): MetaLine | null {
-  const trimmed = line.trim();
-  for (const [re, key] of META_PATTERNS) {
-    const m = trimmed.match(re);
-    if (m) return { key, value: m[1]!.trim() };
+function entry(mapKey: string, value: string): MetaEntry {
+  return { mapKey, value };
+}
+
+function matchMetaLine(line: string): MetaEntry[] | null {
+  const t = line.trim();
+  let m: RegExpMatchArray | null;
+
+  // ── Combined key+capo forms ────────────────────────────────────────────────
+  // "Tom: A (Capo 2)" — key A, capo 2
+  m = t.match(/^tom\s*:\s*(.+?)\s*\(\s*capo\s+(\d+)\s*\)\s*$/i);
+  if (m) return [entry('key', m[1]!.trim()), entry('capo', m[2]!.trim())];
+
+  // "Tom com Capo 2: G" → key G, capo 2
+  m = t.match(/^tom\s+com\s+capo\s+(\d+)\s*:\s*(.+)$/i);
+  if (m) return [entry('key', m[2]!.trim()), entry('capo', m[1]!.trim())];
+
+  // "Tom (Capo 2): G" → key G, capo 2
+  m = t.match(/^tom\s*\(\s*capo\s+(\d+)\s*\)\s*:\s*(.+)$/i);
+  if (m) return [entry('key', m[2]!.trim()), entry('capo', m[1]!.trim())];
+
+  // ── Single key/tuning lines ────────────────────────────────────────────────
+  // "Tom real: X"
+  m = t.match(/^tom\s+real\s*:\s*(.+)$/i);
+  if (m) return [entry('tom_real', m[1]!.trim())];
+
+  // "Tom: X"
+  m = t.match(/^tom\s*:\s*(.+)$/i);
+  if (m) return [entry('key', m[1]!.trim())];
+
+  // "Key: X"
+  m = t.match(/^key\s*:\s*(.+)$/i);
+  if (m) return [entry('key', m[1]!.trim())];
+
+  // "Capo: N" or "Capo N"
+  m = t.match(/^capo\s*:?\s*(\d+)$/i);
+  if (m) return [entry('capo', m[1]!.trim())];
+
+  // "Afinação: X" / "Afinacao: X"
+  m = t.match(/^afina[cç][aã]o\s*:\s*(.+)$/i);
+  if (m) return [entry('afinacao', m[1]!.trim())];
+
+  // ── Tempo / rhythm ─────────────────────────────────────────────────────────
+  // "BPM: N" / "Bpm: N"
+  m = t.match(/^bpm\s*:\s*(\d+)$/i);
+  if (m) return [entry('tempo', m[1]!.trim())];
+
+  // "Tempo: X"
+  m = t.match(/^tempo\s*:\s*(.+)$/i);
+  if (m) return [entry('tempo', m[1]!.trim())];
+
+  // "Andamento: X" — numeric → tempo, text → meta:andamento
+  m = t.match(/^andamento\s*:\s*(.+)$/i);
+  if (m) {
+    const val = m[1]!.trim();
+    return [entry(/^\d+$/.test(val) ? 'tempo' : 'andamento', val)];
   }
+
+  // "Ritmo: X"
+  m = t.match(/^ritmo\s*:\s*(.+)$/i);
+  if (m) return [entry('ritmo', m[1]!.trim())];
+
+  // "Fórmula de compasso: X" / "Compasso: X" — N/N → time directive, else meta
+  m = t.match(/^(?:f[oó]rmula\s+de\s+)?compasso\s*:\s*(.+)$/i);
+  if (m) {
+    const val = m[1]!.trim();
+    return [entry(/^\d+\/\d+$/.test(val) ? 'time' : 'compasso', val)];
+  }
+
+  // "Time: X"
+  m = t.match(/^time\s*:\s*(.+)$/i);
+  if (m) return [entry('time', m[1]!.trim())];
+
+  // ── Standard metadata — Portuguese labels ──────────────────────────────────
+  // "Artista: X"
+  m = t.match(/^artista\s*:\s*(.+)$/i);
+  if (m) return [entry('artist', m[1]!.trim())];
+
+  // "Título: X" / "Titulo: X"
+  m = t.match(/^t[ií]tulo\s*:\s*(.+)$/i);
+  if (m) return [entry('title', m[1]!.trim())];
+
+  // "Álbum: X" / "Album: X"
+  m = t.match(/^[áa]lbum\s*:\s*(.+)$/i);
+  if (m) return [entry('album', m[1]!.trim())];
+
+  // "Ano: N"
+  m = t.match(/^ano\s*:\s*(\d{3,4})$/i);
+  if (m) return [entry('year', m[1]!.trim())];
+
+  // "Compositor: X" / "Composição: X" / "Composicao: X"
+  m = t.match(/^(?:compositor|composi[cç][aã]o)\s*:\s*(.+)$/i);
+  if (m) return [entry('composer', m[1]!.trim())];
+
+  // "Letrista: X"
+  m = t.match(/^letrista\s*:\s*(.+)$/i);
+  if (m) return [entry('lyricist', m[1]!.trim())];
+
+  // "CCLI: N"
+  m = t.match(/^ccli\s*:\s*(.+)$/i);
+  if (m) return [entry('ccli', m[1]!.trim())];
+
+  // "Copyright: X"
+  m = t.match(/^copyright\s*:\s*(.+)$/i);
+  if (m) return [entry('copyright', m[1]!.trim())];
+
   return null;
+}
+
+/** Emit a MetaEntry as a ChordPro directive string (without surrounding {}). */
+function directiveFor(e: MetaEntry): string {
+  return STANDARD_DIRECTIVES.has(e.mapKey)
+    ? `${e.mapKey}: ${e.value}`
+    : `meta: ${e.mapKey} ${e.value}`;
 }
 
 // ─── Chord-only line detection ────────────────────────────────────────────────
 
 /**
- * Returns true if line is a chord-only line (≥80% of tokens parseable as chords).
- * Uses strict mode to avoid treating normal words starting with note letters (e.g.
- * "Amazing", "Grace") as chord tokens.
+ * True if ≥80% of space-separated tokens are parseable chords (strict mode).
+ * Strip trailing repeat markers before testing.
  */
 function isChordOnlyLine(line: string): boolean {
-  const trimmed = line.trim();
+  const { text } = extractRepeatSuffix(line.trim());
+  const trimmed = text.trim();
   if (!trimmed) return false;
-
   const tokens = trimmed.split(/\s+/).filter(Boolean);
   if (tokens.length === 0) return false;
-
-  // Require at least one token to actually look like a chord
-  // (has note letter + optional modifier, not just any word)
   let parsed = 0;
   for (const tok of tokens) {
-    const chord = parseChord(tok, { mode: 'strict' });
-    if (chord.parsed) parsed++;
+    if (parseChord(tok, { mode: 'strict' }).parsed) parsed++;
   }
-
-  return tokens.length > 0 && parsed / tokens.length >= 0.8;
+  return parsed / tokens.length >= 0.8;
 }
 
-// ─── Chord-above-lyrics merge ─────────────────────────────────────────────────
+// ─── Unicode-aware chord-above-lyrics merge ───────────────────────────────────
 
-/** Merge a chord-only line with the following lyrics line into inline ChordPro. */
+/**
+ * Merge a chord-only line with the following lyrics line into inline ChordPro.
+ * Uses code-point iteration for Unicode correctness (handles BMP and non-BMP chars).
+ */
 function mergeChordAboveLyrics(chordLine: string, lyricLine: string): string {
-  // Parse chord tokens with their column positions
+  // Code-point array of the lyric for Unicode-safe indexing
+  const lyricCps = [...lyricLine];
+
+  // Parse chord tokens with their code-point column positions
   const chordTokens: Array<{ col: number; name: string }> = [];
-  const re = /\S+/g;
-  let m;
-  while ((m = re.exec(chordLine)) !== null) {
-    chordTokens.push({ col: m.index, name: m[0]! });
+  const reChord = /\S+/g;
+  let m: RegExpExecArray | null;
+  while ((m = reChord.exec(chordLine)) !== null) {
+    // m.index is a UTF-16 offset; convert to code-point count for Unicode safety
+    const col = [...chordLine.slice(0, m.index)].length;
+    chordTokens.push({ col, name: m[0]! });
   }
 
   if (chordTokens.length === 0) return lyricLine;
 
-  // For each chord, find the nearest word boundary at or after its column
   let result = '';
   let lyricPos = 0;
 
-  for (let i = 0; i < chordTokens.length; i++) {
-    const token = chordTokens[i]!;
-
-    // Target column in the lyric line (clamped)
-    let insertAt = Math.min(token.col, lyricLine.length);
-
-    // Snap forward to the next non-space character (word boundary)
-    while (insertAt < lyricLine.length && lyricLine[insertAt] === ' ') {
-      insertAt++;
-    }
-
-    // If we've already passed insertAt, keep current position
+  for (const token of chordTokens) {
+    let insertAt = Math.min(token.col, lyricCps.length);
+    // Snap forward to next non-space character (word boundary)
+    while (insertAt < lyricCps.length && lyricCps[insertAt] === ' ') insertAt++;
     if (insertAt < lyricPos) insertAt = lyricPos;
-
-    // Emit lyric up to insertAt
-    result += lyricLine.slice(lyricPos, insertAt);
+    result += lyricCps.slice(lyricPos, insertAt).join('');
     lyricPos = insertAt;
-
-    // Emit the chord token
     result += `[${token.name}]`;
-
-    // Lyric for this chord's span is emitted on the next iteration
   }
 
-  // Emit remaining lyric
-  result += lyricLine.slice(lyricPos);
-
+  result += lyricCps.slice(lyricPos).join('');
   return result;
 }
 
@@ -177,19 +281,20 @@ export function parseFreeText(input: string): ParseFreeTextResult {
 
   const rawLines = input.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
 
-  // ── Pass 1: identify title, artist, metadata lines ──────────────────────
-  let titleFound = false;
-  let artistFound = false;
-  const processedLines: Array<
+  type ProcessedLine =
     | { kind: 'title'; text: string }
     | { kind: 'artist'; text: string }
-    | { kind: 'meta'; key: string; value: string }
+    | { kind: 'meta'; entries: MetaEntry[] }
     | { kind: 'heading'; match: HeadingMatch }
-    | { kind: 'chord_only'; text: string }
+    | { kind: 'chord_only'; text: string; repeatCount?: number }
+    | { kind: 'standalone_repeat'; count: number }
     | { kind: 'lyric'; text: string }
     | { kind: 'blank' }
-    | { kind: 'directive'; text: string }
-  > = [];
+    | { kind: 'directive'; text: string };
+
+  const processedLines: ProcessedLine[] = [];
+  let titleFound = false;
+  let artistFound = false;
 
   for (let i = 0; i < rawLines.length; i++) {
     const raw = rawLines[i] ?? '';
@@ -200,34 +305,54 @@ export function parseFreeText(input: string): ParseFreeTextResult {
       continue;
     }
 
-    // Already a ChordPro directive
+    // Passthrough ChordPro directives
     if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
       processedLines.push({ kind: 'directive', text: trimmed });
       continue;
     }
 
-    // Metadata line (Key:, Tempo:, etc.)
-    const meta = matchMetaLine(trimmed);
-    if (meta) {
-      metadata.set(meta.key, meta.value);
-      processedLines.push({ kind: 'meta', key: meta.key, value: meta.value });
+    // Metadata line — test on the ORIGINAL trimmed line so compound forms like
+    // "Tom: A (Capo 2)" are handled correctly before repeat-suffix stripping.
+    const metaEntries = matchMetaLine(trimmed);
+    if (metaEntries) {
+      for (const e of metaEntries) metadata.set(e.mapKey, e.value);
+      if (metaEntries.some((e) => e.mapKey === 'title')) titleFound = true;
+      if (metaEntries.some((e) => e.mapKey === 'artist')) artistFound = true;
+      processedLines.push({ kind: 'meta', entries: metaEntries });
       continue;
     }
 
-    // Section heading
-    const heading = matchHeading(trimmed);
+    // Extract repeat suffix for heading / content classification
+    const { text: withoutRepeat, count: repeatCount } = extractRepeatSuffix(trimmed);
+
+    // Standalone repeat marker: whole line is "(x2)" etc.
+    if (repeatCount !== undefined && !withoutRepeat) {
+      processedLines.push({ kind: 'standalone_repeat', count: repeatCount });
+      continue;
+    }
+
+    // Section heading — test on text-without-repeat (so "[Refrão] (x2)" → "[Refrão]")
+    const headingInput = repeatCount !== undefined ? withoutRepeat : trimmed;
+    const heading = matchHeading(headingInput);
     if (heading) {
-      processedLines.push({ kind: 'heading', match: heading });
+      const match: HeadingMatch = { ...heading };
+      if (repeatCount !== undefined && match.repeatCount === undefined) {
+        match.repeatCount = repeatCount;
+      }
+      processedLines.push({ kind: 'heading', match });
       continue;
     }
 
-    // Chord-only line
+    // Chord-only line (isChordOnlyLine strips repeat suffix internally)
     if (isChordOnlyLine(trimmed)) {
-      processedLines.push({ kind: 'chord_only', text: trimmed });
+      const stripped = extractRepeatSuffix(trimmed);
+      const chordEntry: Extract<ProcessedLine, { kind: 'chord_only' }> = { kind: 'chord_only', text: stripped.text };
+      if (stripped.count !== undefined) chordEntry.repeatCount = stripped.count;
+      processedLines.push(chordEntry);
       continue;
     }
 
-    // Title / artist detection (first two non-chord, non-meta, non-heading content lines)
+    // Title / artist auto-detection from first two free-text lines
     if (!titleFound) {
       titleFound = true;
       metadata.set('title', trimmed);
@@ -246,9 +371,8 @@ export function parseFreeText(input: string): ParseFreeTextResult {
 
   // ── Key auto-detection if no Key:/Tom: found ─────────────────────────────
   if (!metadata.has('key')) {
-    // Convert chord-only tokens into inline ChordPro format so guessKey can parse them
     const chordSource = processedLines
-      .filter((pl) => pl.kind === 'chord_only')
+      .filter((pl): pl is { kind: 'chord_only'; text: string; repeatCount?: number } => pl.kind === 'chord_only')
       .flatMap((pl) => pl.text.split(/\s+/).filter(Boolean))
       .map((name) => `[${name}]`)
       .join(' ');
@@ -263,12 +387,11 @@ export function parseFreeText(input: string): ParseFreeTextResult {
   // ── Pass 2: emit ChordPro ─────────────────────────────────────────────────
   const outputLines: string[] = [];
 
-  // Emit metadata directives
+  // Emit metadata directives at the top
   for (const [key, value] of metadata) {
-    outputLines.push(`{${key}: ${value}}`);
+    outputLines.push(`{${directiveFor({ mapKey: key, value })}}`);
   }
 
-  // Track current section
   let currentSection: string | null = null;
 
   function closeSection(): void {
@@ -285,55 +408,73 @@ export function parseFreeText(input: string): ParseFreeTextResult {
     currentSection = kind;
   }
 
-  let i = 0;
-  while (i < processedLines.length) {
-    const pl = processedLines[i]!;
+  let idx = 0;
+  while (idx < processedLines.length) {
+    const pl = processedLines[idx]!;
 
     switch (pl.kind) {
       case 'title':
       case 'artist':
       case 'meta':
-        // Already emitted as metadata directives
-        i++;
+        idx++;
         break;
 
       case 'blank':
         if (currentSection === null) outputLines.push('');
-        i++;
+        idx++;
         break;
 
       case 'directive':
         outputLines.push(pl.text);
-        i++;
+        idx++;
         break;
 
       case 'heading':
         openSection(pl.match.kind, pl.match.label);
-        i++;
+        if (pl.match.repeatCount !== undefined) {
+          outputLines.push(`{meta: repeat ${pl.match.repeatCount}}`);
+        }
+        idx++;
+        break;
+
+      case 'standalone_repeat':
+        outputLines.push(`{comment: (x${pl.count})}`);
+        idx++;
         break;
 
       case 'chord_only': {
-        // Look ahead: if next non-blank line is a lyric, merge
-        let j = i + 1;
+        // Look ahead: if next non-blank is a lyric, merge
+        let j = idx + 1;
         while (j < processedLines.length && processedLines[j]!.kind === 'blank') j++;
         const next = j < processedLines.length ? processedLines[j]! : null;
+
         if (next && next.kind === 'lyric') {
-          const merged = mergeChordAboveLyrics(pl.text, next.text);
-          outputLines.push(merged);
-          i = j + 1;
+          const { text: lyricText, count: lyricRepeat } = extractRepeatSuffix(next.text);
+          const merged = mergeChordAboveLyrics(pl.text, lyricText);
+          const line = lyricRepeat !== undefined ? `${merged} [*x${lyricRepeat}]` : merged;
+          outputLines.push(line);
+          if (pl.repeatCount !== undefined) {
+            outputLines.push(`{comment: (x${pl.repeatCount})}`);
+          }
+          idx = j + 1;
         } else {
-          // Orphan chord line — emit as lyric with chords in brackets
-          const chordLine = pl.text.split(/\s+/).map((c) => `[${c}]`).join(' ');
+          // Orphan chord line — bracket each chord token
+          const chordLine = pl.text.split(/\s+/).filter(Boolean).map((c) => `[${c}]`).join(' ');
           outputLines.push(chordLine);
-          i++;
+          if (pl.repeatCount !== undefined) {
+            outputLines.push(`{comment: (x${pl.repeatCount})}`);
+          }
+          idx++;
         }
         break;
       }
 
-      case 'lyric':
-        outputLines.push(pl.text);
-        i++;
+      case 'lyric': {
+        const { text: cleanText, count: rc } = extractRepeatSuffix(pl.text);
+        outputLines.push(rc !== undefined ? `${cleanText} [*x${rc}]` : pl.text);
+        idx++;
         break;
+      }
     }
   }
 
