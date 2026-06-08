@@ -11,6 +11,7 @@ export { parse } from './parser/parse.js';
 export type { ParseOptions } from './parser/parse.js';
 
 export { serialize } from './parser/serialize.js';
+export { resolveChorus, collectChorusCandidates } from './parser/resolveChorus.js';
 
 export { parseChord } from './chords/parseChord.js';
 export type { ChordParseOptions } from './chords/parseChord.js';

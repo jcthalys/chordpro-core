@@ -25,6 +25,8 @@ import {
   renderText,
   renderHtml,
   getChordShape,
+  resolveChorus,
+  collectChorusCandidates,
   DIRECTIVE_ALIASES,
   KNOWN_DIRECTIVES,
 } from '../src/index.js';
@@ -1110,5 +1112,85 @@ describe('applyTransposeDirectives', () => {
     const lyric = song.lines.find((l) => l.type === 'lyric');
     expect(lyric?.type === 'lyric' && lyric.segments[0]?.chord?.name).toBe('C');
     expect(lyric?.type === 'lyric' && lyric.segments[1]?.chord?.name).toBe('G');
+  });
+});
+
+// ─── resolveChorus ────────────────────────────────────────────────────────────
+
+describe('resolveChorus', () => {
+  const src = `
+{start_of_chorus}
+[G]Chorus line
+{end_of_chorus}
+{chorus}
+`.trim();
+
+  it('resolves a bare {chorus} to the preceding chorus section', () => {
+    const song = parse(src);
+    const ref = song.lines.find((l) => l.type === 'chorus_reference');
+    expect(ref?.type).toBe('chorus_reference');
+    if (ref?.type !== 'chorus_reference') return;
+    const section = resolveChorus(song, ref);
+    expect(section).not.toBeNull();
+    expect(section?.kind).toBe('chorus');
+  });
+
+  it('returns null when no chorus precedes the reference', () => {
+    const song = parse('{chorus}');
+    const ref = song.lines.find((l) => l.type === 'chorus_reference');
+    if (ref?.type !== 'chorus_reference') return;
+    expect(resolveChorus(song, ref)).toBeNull();
+  });
+
+  it('resolves labeled {chorus: label} to the matching section', () => {
+    const labelSrc = `
+{start_of_chorus label="A"}
+[C]Chorus A
+{end_of_chorus}
+{start_of_chorus label="B"}
+[D]Chorus B
+{end_of_chorus}
+{chorus: A}
+`.trim();
+    const song = parse(labelSrc);
+    const ref = song.lines.find((l) => l.type === 'chorus_reference');
+    if (ref?.type !== 'chorus_reference') return;
+    const section = resolveChorus(song, ref);
+    expect(section?.label).toBe('A');
+  });
+
+  it('returns the LAST matching chorus before the reference', () => {
+    const multiSrc = `
+{start_of_chorus}
+[C]First
+{end_of_chorus}
+{start_of_chorus}
+[G]Second
+{end_of_chorus}
+{chorus}
+`.trim();
+    const song = parse(multiSrc);
+    const ref = song.lines.find((l) => l.type === 'chorus_reference');
+    if (ref?.type !== 'chorus_reference') return;
+    const section = resolveChorus(song, ref);
+    const lyric = section?.lines.find((l) => l.type === 'lyric');
+    expect(lyric?.type === 'lyric' && lyric.segments[0]?.chord?.name).toBe('G');
+  });
+
+  it('collectChorusCandidates returns all matching sections in order', () => {
+    const multiSrc = `
+{start_of_chorus}
+[C]First
+{end_of_chorus}
+{start_of_chorus}
+[G]Second
+{end_of_chorus}
+{chorus}
+`.trim();
+    const song = parse(multiSrc);
+    const ref = song.lines.find((l) => l.type === 'chorus_reference');
+    if (ref?.type !== 'chorus_reference') return;
+    const candidates = collectChorusCandidates(song, ref);
+    expect(candidates).toHaveLength(2);
   });
 });
