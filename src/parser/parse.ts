@@ -14,6 +14,7 @@ import type {
   ChorusReference,
   TabLine,
   GridRow,
+  ChordDef,
   Warning,
   SectionKind,
 } from '../model/types.js';
@@ -231,6 +232,12 @@ export function parse(source: string, options: ParseOptions = {}): Song {
         continue;
       }
 
+      // ── Chord definitions → structured ChordDef node ────────────────────
+      if (canonical === 'define' || canonical === 'chord') {
+        emit(buildChordDef(directive));
+        continue;
+      }
+
       // ── All other directives ─────────────────────────────────────────────
       emit(directive);
       continue;
@@ -281,4 +288,70 @@ export function parse(source: string, options: ParseOptions = {}): Song {
   }
 
   return { metadata, lines, warnings };
+}
+
+// ─── ChordDef builder ────────────────────────────────────────────────────────
+
+import type { DirectiveLine } from '../model/types.js';
+
+function buildChordDef(d: DirectiveLine): ChordDef {
+  const arg = d.argument ?? '';
+  const tokens = arg.trim().split(/\s+/);
+  const name = tokens[0] ?? '';
+
+  const def: ChordDef = {
+    type: 'chord_def',
+    name,
+    originalName: d.originalName === 'chord' ? 'chord' : 'define',
+    source: d.source,
+  };
+
+  const idx = (kw: string) => tokens.findIndex((t) => t.toLowerCase() === kw);
+
+  // base-fret N
+  const bfI = idx('base-fret');
+  if (bfI >= 0) {
+    const bf = parseInt(tokens[bfI + 1] ?? '', 10);
+    if (!isNaN(bf)) def.baseFret = bf;
+  }
+
+  // frets f f f... (runs until next keyword or end)
+  const frI = idx('frets');
+  if (frI >= 0) {
+    const nums = collectInts(tokens, frI + 1, ['fingers', 'keys']);
+    if (nums.length) def.frets = nums;
+  }
+
+  // fingers f f f...
+  const fnI = idx('fingers');
+  if (fnI >= 0) {
+    const nums = collectInts(tokens, fnI + 1, ['frets', 'keys']);
+    if (nums.length) def.fingers = nums;
+  }
+
+  // keys N N N... (keyboard syntax)
+  const kI = idx('keys');
+  if (kI >= 0) {
+    const nums = collectInts(tokens, kI + 1, ['frets', 'fingers']);
+    if (nums.length) def.keys = nums;
+  }
+
+  // HTML-attribute-style extended params (already parsed by directive parser)
+  const attrs = d.attributes;
+  if (attrs['copy']) def.copy = attrs['copy'];
+  if (attrs['copyall']) { def.copy = attrs['copyall']; def.copyAll = true; }
+  if (attrs['display']) def.display = attrs['display'];
+
+  return def;
+}
+
+function collectInts(tokens: string[], start: number, stopWords: string[]): number[] {
+  const result: number[] = [];
+  for (let i = start; i < tokens.length; i++) {
+    const t = tokens[i]!;
+    if (stopWords.includes(t.toLowerCase()) || t.includes('=') || t.includes('"')) break;
+    const n = t === '-' || t.toLowerCase() === 'x' || t.toLowerCase() === 'n' ? -1 : parseInt(t, 10);
+    if (!isNaN(n)) result.push(n);
+  }
+  return result;
 }

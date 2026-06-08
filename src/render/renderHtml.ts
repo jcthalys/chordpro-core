@@ -81,6 +81,8 @@ function renderLineHtml(line: Line): string | null {
         .join('<span class="cp-grid-bar">|</span>');
       return `<div class="cp-grid-row">${cells}</div>`;
     }
+    case 'chord_def':
+      return null; // chord definitions are not rendered
   }
 }
 

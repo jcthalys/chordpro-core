@@ -150,6 +150,7 @@ function transposeLine(line: Line, semitones: number, opts: TransposeOptions): L
     case 'directive':
     case 'chorus_reference':
     case 'tab_line':
+    case 'chord_def':
       return line;
   }
 }

@@ -37,6 +37,8 @@ function serializeLine(line: Line): string {
       // Use stored source for perfect round-trip; fall back to reconstruction when transposed
       if (line.source !== undefined) return line.source;
       return line.cells.map((c) => c.chords.map((ch) => ch.name).join(' ')).join(' | ');
+    case 'chord_def':
+      return line.source;
   }
 }
 
