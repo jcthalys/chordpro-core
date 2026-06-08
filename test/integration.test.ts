@@ -132,3 +132,20 @@ describe('integration — freetext fixture', () => {
     expect(chordpro).toContain('[G7]');
   });
 });
+
+describe('integration — font/size/colour directive families', () => {
+  const families = ['chorus', 'footer', 'grid', 'label', 'toc'];
+  const variants = ['font', 'size', 'colour', 'color'];
+
+  for (const family of families) {
+    for (const variant of variants) {
+      const name = `${family}${variant}`;
+      it(`{${name}} is recognized without warning and round-trips`, () => {
+        const src = `{${name}: Arial}\nSome lyrics\n`;
+        const song = parse(src);
+        expect(song.warnings.filter((w) => w.code === 'UNKNOWN_DIRECTIVE')).toHaveLength(0);
+        expect(serialize(song)).toContain(`{${name}: Arial}`);
+      });
+    }
+  }
+});
