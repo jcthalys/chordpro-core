@@ -6,7 +6,7 @@
  *   (matching by label when one is given, otherwise any chorus).
  */
 
-import type { Song, SectionNode, ChorusReference, Line } from '../model/types.js';
+import type { Song, SectionNode, ChorusReference } from '../model/types.js';
 
 /**
  * Resolve a `{chorus}` reference to the chorus section it refers to.

@@ -219,11 +219,14 @@ No colors, no class names — your app maps token `type` to its own theme.
 
 #### `guessKey(input): KeyGuess | null`
 
-Frequency analysis of chord roots. Returns `null` when no chords or the most
-frequent root appears fewer than 2 times.
+Diatonic coverage scoring across all 24 candidate keys (12 major + 12 minor).
+Returns the key whose scale best covers the chord roots in the song, weighted
+by tonic and dominant frequency. Returns `null` when fewer than 2 total chord
+occurrences are found. Minor keys include the qualifier: `"Am"` not `"A"`.
 
 ```ts
 interface KeyGuess { key: string; confidence: number }
+// key examples: "G", "C", "Am", "Em", "Bb", "F#"
 ```
 
 #### `getChordShape(name, instrument, song?): DiagramData | null`
@@ -238,8 +241,11 @@ interface DiagramData { baseFret: number; frets: number[]; fingers?: number[] }
 
 #### `toNashville(song, key) / fromNashville(song, key)`
 
-Nashville Number System conversion. v1 stub — returns the song unchanged; full
-implementation planned for a future version.
+Nashville Number System conversion. Replaces chord roots with scale degrees (1–7)
+relative to the given key. Chromatic roots use a flat prefix: F in G → `b7`,
+Bb in G → `b3`. Qualifiers, extensions, and bass notes are preserved:
+`Am7` in C → `6m7`. `fromNashville(toNashville(song, key), key)` is identity
+on all diatonic chord names.
 
 ---
 

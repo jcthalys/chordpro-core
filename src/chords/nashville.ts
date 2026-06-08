@@ -6,7 +6,7 @@
  * Auxiliary helper, not part of the ChordPro format specification.
  */
 
-import type { Song, Line, LyricLine, SectionNode, Segment, Chord, GridRow } from '../model/types.js';
+import type { Song, Line, LyricLine, Segment, Chord, GridRow } from '../model/types.js';
 import { parseChord } from './parseChord.js';
 
 // Chromatic semitone table

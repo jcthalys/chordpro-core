@@ -8,6 +8,7 @@
  */
 
 import { parseChord } from '../chords/parseChord.js';
+import { guessKey } from '../analysis/guessKey.js';
 import type { Warning } from '../model/types.js';
 
 export interface ParseFreeTextResult {
@@ -245,24 +246,17 @@ export function parseFreeText(input: string): ParseFreeTextResult {
 
   // ── Key auto-detection if no Key:/Tom: found ─────────────────────────────
   if (!metadata.has('key')) {
-    const rootFreq = new Map<string, number>();
-    for (const pl of processedLines) {
-      if (pl.kind === 'chord_only') {
-        for (const tok of pl.text.split(/\s+/)) {
-          const chord = parseChord(tok, { mode: 'relaxed' });
-          if (chord.parsed && chord.root) {
-            rootFreq.set(chord.root, (rootFreq.get(chord.root) ?? 0) + 1);
-          }
-        }
+    // Convert chord-only tokens into inline ChordPro format so guessKey can parse them
+    const chordSource = processedLines
+      .filter((pl) => pl.kind === 'chord_only')
+      .flatMap((pl) => pl.text.split(/\s+/).filter(Boolean))
+      .map((name) => `[${name}]`)
+      .join(' ');
+    if (chordSource.trim()) {
+      const guess = guessKey(chordSource);
+      if (guess && guess.confidence >= 0.5) {
+        metadata.set('key', guess.key);
       }
-    }
-    let bestRoot: string | null = null;
-    let bestCount = 0;
-    for (const [root, count] of rootFreq) {
-      if (count > bestCount) { bestCount = count; bestRoot = root; }
-    }
-    if (bestRoot !== null && bestCount >= 2) {
-      metadata.set('key', bestRoot);
     }
   }
 

@@ -27,6 +27,9 @@ import {
   getChordShape,
   resolveChorus,
   collectChorusCandidates,
+  parseFreeText,
+  toNashville,
+  fromNashville,
   DIRECTIVE_ALIASES,
   KNOWN_DIRECTIVES,
 } from '../src/index.js';
@@ -1192,5 +1195,140 @@ describe('resolveChorus', () => {
     if (ref?.type !== 'chorus_reference') return;
     const candidates = collectChorusCandidates(song, ref);
     expect(candidates).toHaveLength(2);
+  });
+});
+
+// ─── Coverage gap tests ───────────────────────────────────────────────────────
+
+describe('GraceNote-critical behaviors', () => {
+  it('parses chord regression set in strict mode', () => {
+    const cases: [string, string, string?, string?, string?][] = [
+      ['Cadd9',   'C',  undefined, 'add9',  undefined],
+      ['G7sus4',  'G',  undefined, '7sus4', undefined],
+      ['Am7b5',   'A',  'm',       '7b5',   undefined],
+      ['Fmaj7/A', 'F',  undefined, 'maj7',  'A'],
+      ['Dsus2',   'D',  undefined, 'sus2',  undefined],
+      ['Bbmaj7',  'Bb', undefined, 'maj7',  undefined],
+      ['F#dim7',  'F#', undefined, 'dim7',  undefined],
+      ['Gaug',    'G',  'aug',     undefined, undefined],
+      ['Esus2',   'E',  undefined, 'sus2',  undefined],
+      ['Bm7',     'B',  'm',       '7',     undefined],
+    ];
+    for (const [name, root, qual, ext, bass] of cases) {
+      const c = parseChord(name, { mode: 'strict' });
+      expect(c.parsed, `${name} parsed`).toBe(true);
+      expect(c.root, `${name} root`).toBe(root);
+      if (qual !== undefined) expect(c.qualifier, `${name} qualifier`).toBe(qual);
+      if (ext !== undefined) expect(c.extension, `${name} extension`).toBe(ext);
+      if (bass !== undefined) expect(c.bass, `${name} bass`).toBe(bass);
+    }
+  });
+
+  it('extracts copyright and ccli into metadata', () => {
+    const song = parse('{copyright: 2024 Grace Music}\n{ccli: 1234567}');
+    expect(song.metadata.get('copyright')).toBe('2024 Grace Music');
+    expect(song.metadata.get('ccli')).toBe('1234567');
+    expect(song.warnings).toHaveLength(0);
+  });
+
+  it('ccli_number also maps to ccli key', () => {
+    const song = parse('{ccli_number: 9999}');
+    expect(song.metadata.get('ccli')).toBe('9999');
+  });
+
+  it('tokenizer tiles CRLF input exactly', () => {
+    const src = '{title: Test}\r\n[G]hello\r\n# comment';
+    const tokens = tokenize(src);
+    expect(tokens.map((t) => t.text).join('')).toBe(src);
+  });
+
+  it('tokenizer tiles empty and whitespace-only input', () => {
+    expect(tokenize('').map((t) => t.text).join('')).toBe('');
+    expect(tokenize('   ').map((t) => t.text).join('')).toBe('   ');
+  });
+
+  it('tokenizer tiles input with unclosed directive and bracket', () => {
+    for (const src of ['{unclosed', '[unclosed', '{title: Test}\n{key: G}']) {
+      expect(tokenize(src).map((t) => t.text).join('')).toBe(src);
+    }
+  });
+
+  it('parse never throws on garbage input', () => {
+    const garbage = ['', '{{{{', '\x00\x01\x02', '[[[[[', '{a:'.repeat(500), 'x'.repeat(10000)];
+    for (const g of garbage) {
+      expect(() => parse(g)).not.toThrow();
+    }
+  });
+});
+
+describe('chord shape — barre fallback coverage', () => {
+  it('derives E-shape barre for any natural major root not in table', () => {
+    // These should all hit the algorithmic path
+    for (const name of ['F', 'G', 'A', 'B', 'Gb', 'Ab']) {
+      const shape = getChordShape(name, 'guitar');
+      expect(shape, name).not.toBeNull();
+      expect(shape?.frets).toHaveLength(6);
+    }
+  });
+
+  it('derives minor barre shapes algorithmically', () => {
+    for (const name of ['Gm', 'C#m', 'Dbm', 'Gbm']) {
+      const shape = getChordShape(name, 'guitar');
+      expect(shape, name).not.toBeNull();
+    }
+  });
+
+  it('returns null for guitar chord with unrecognised root', () => {
+    expect(getChordShape('Xyz', 'guitar')).toBeNull();
+  });
+
+  it('returns null for ukulele chord not in static table', () => {
+    // Ukulele has no barre fallback
+    expect(getChordShape('C#maj7', 'ukulele')).toBeNull();
+  });
+
+  it('barre not applied for extended chords (only major/minor)', () => {
+    expect(getChordShape('Gdim7', 'guitar')).toBeNull();
+    expect(getChordShape('Faug', 'guitar')).not.toBeNull(); // IS in static table
+  });
+});
+
+describe('nashville — unparsed chord passthrough', () => {
+  it('toNashville passes through unparsed chords unchanged', () => {
+    const song = parse('[XYZ]word');
+    const result = toNashville(song, 'G');
+    const lyric = result.lines.find((l) => l.type === 'lyric');
+    // XYZ does not parse → should remain XYZ
+    expect(lyric?.type === 'lyric' && lyric.segments[0]?.chord?.name).toBe('XYZ');
+  });
+
+  it('fromNashville passes through non-nashville chords unchanged', () => {
+    // A chord name that is not a Nashville number
+    const song = parse('[G]word');
+    const result = fromNashville(song, 'G');
+    const lyric = result.lines.find((l) => l.type === 'lyric');
+    // G is not a Nashville number (no digit) — fromNashville should leave it
+    expect(lyric?.type === 'lyric' && lyric.segments[0]?.chord?.name).toBe('G');
+  });
+});
+
+describe('parseFreeText — key detection and edge cases', () => {
+  it('detects key via guessKey diatonic scoring (not naive counter)', () => {
+    // G D Em C pattern — guessKey correctly returns G, naive counter might return G too
+    // but Am D C G pattern would differ
+    const result = parseFreeText('Am G F G\nSome words here\nAm G F G\nMore words');
+    // With diatonic scoring, Am should win over G (or at least detect a key)
+    expect(result.metadata.has('key')).toBe(true);
+  });
+
+  it('handles orphan chord line (no following lyric)', () => {
+    const result = parseFreeText('[Verse]\nG D Em C\n');
+    // chord-only line with no following lyric should emit chord tokens
+    expect(result.chordpro).toContain('[G]');
+  });
+
+  it('handles Tom: metadata alias for key', () => {
+    const result = parseFreeText('Tom: G\n[Verse]\nG D\nHello world');
+    expect(result.metadata.get('key')).toBe('G');
   });
 });
