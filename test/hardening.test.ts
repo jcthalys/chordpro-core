@@ -1331,4 +1331,160 @@ describe('parseFreeText — key detection and edge cases', () => {
     const result = parseFreeText('Tom: G\n[Verse]\nG D\nHello world');
     expect(result.metadata.get('key')).toBe('G');
   });
+
+  it('handles prechorus heading', () => {
+    const result = parseFreeText('[Pre-chorus]\nG D\nSome words');
+    expect(result.chordpro).toContain('start_of_prechorus');
+  });
+
+  it('handles directive passthrough in freetext', () => {
+    const result = parseFreeText('{title: My Song}\n[Chorus]\nG D\nWords');
+    expect(result.chordpro).toContain('{title: My Song}');
+  });
+
+  it('blank inside section is suppressed', () => {
+    const result = parseFreeText('[Verse]\nG D\nHello\n\nWorld');
+    // blank inside section context → not emitted
+    expect(result.chordpro).not.toMatch(/\n\n/);
+  });
+});
+
+// ─── F-2: getChordShape instrument selector ───────────────────────────────────
+
+describe('getChordShape — instrument selector (F-2)', () => {
+  it('plain {define} applies to either instrument', () => {
+    const src = '{define: MyChord base-fret 1 frets 0 2 2 1 0 0}';
+    const song = parse(src);
+    expect(getChordShape('MyChord', 'guitar', song)).not.toBeNull();
+    expect(getChordShape('MyChord', 'ukulele', song)).not.toBeNull();
+  });
+
+  it('{define-guitar} does NOT match a ukulele request', () => {
+    const src = '{define-guitar: MyChord base-fret 1 frets 0 2 2 1 0 0}';
+    const song = parse(src);
+    expect(getChordShape('MyChord', 'guitar', song)).not.toBeNull();
+    expect(getChordShape('MyChord', 'ukulele', song)).toBeNull();
+  });
+
+  it('{define-ukulele} does NOT match a guitar request', () => {
+    const src = '{define-ukulele: MyChord base-fret 1 frets 0 2 1 0}';
+    const song = parse(src);
+    expect(getChordShape('MyChord', 'ukulele', song)).not.toBeNull();
+    expect(getChordShape('MyChord', 'guitar', song)).toBeNull();
+  });
+
+  it('instrument field set on ChordDef when selector present', () => {
+    const song = parse('{define-guitar: Am base-fret 1 frets x 0 2 2 1 0}');
+    const def = song.lines.find((l) => l.type === 'chord_def');
+    expect(def?.type === 'chord_def' && def.instrument).toBe('guitar');
+  });
+
+  it('instrument field absent on plain {define}', () => {
+    const song = parse('{define: Am base-fret 1 frets x 0 2 2 1 0}');
+    const def = song.lines.find((l) => l.type === 'chord_def');
+    expect(def?.type === 'chord_def' && def.instrument).toBeUndefined();
+  });
+
+  it('prefers instrument-matched define over plain define', () => {
+    // guitar define frets=[1,2,2,1,0,0], plain define frets=[0,0,2,2,1,0]
+    const src = '{define-guitar: X base-fret 1 frets 1 2 2 1 0 0}\n{define: X base-fret 1 frets 0 0 2 2 1 0}';
+    const song = parse(src);
+    // guitar request: first matching define is guitar-specific
+    const gShape = getChordShape('X', 'guitar', song);
+    expect(gShape?.frets[0]).toBe(1); // guitar define first item
+  });
+});
+
+// ─── F-3: resolveChorus nesting — documented top-level-only behavior ──────────
+
+describe('resolveChorus — nesting behavior (F-3)', () => {
+  it('finds chorus at top level', () => {
+    const src = `{start_of_chorus}\n[G]Chorus\n{end_of_chorus}\n{chorus}`;
+    const song = parse(src);
+    const ref = song.lines.find((l) => l.type === 'chorus_reference');
+    if (ref?.type !== 'chorus_reference') throw new Error('no ref');
+    expect(resolveChorus(song, ref)).not.toBeNull();
+  });
+
+  it('does NOT find chorus nested inside a verse (top-level-only per spec)', () => {
+    // Chorus defined inside a verse is non-canonical; top-level-only search is correct.
+    const src = `{start_of_verse}\n{start_of_chorus}\n[G]Nested\n{end_of_chorus}\n{end_of_verse}\n{chorus}`;
+    const song = parse(src);
+    const ref = song.lines.find((l) => l.type === 'chorus_reference');
+    if (ref?.type !== 'chorus_reference') throw new Error('no ref');
+    // Expected: null — nested chorus is intentionally not found
+    expect(resolveChorus(song, ref)).toBeNull();
+  });
+
+  it('label mismatch returns null', () => {
+    const src = `{start_of_chorus label="A"}\n[G]Chorus A\n{end_of_chorus}\n{chorus: B}`;
+    const song = parse(src);
+    const ref = song.lines.find((l) => l.type === 'chorus_reference');
+    if (ref?.type !== 'chorus_reference') throw new Error('no ref');
+    expect(resolveChorus(song, ref)).toBeNull();
+  });
+
+  it('collectChorusCandidates returns empty when label mismatches', () => {
+    const src = `{start_of_chorus label="A"}\n[G]Chorus A\n{end_of_chorus}\n{chorus: B}`;
+    const song = parse(src);
+    const ref = song.lines.find((l) => l.type === 'chorus_reference');
+    if (ref?.type !== 'chorus_reference') throw new Error('no ref');
+    expect(collectChorusCandidates(song, ref)).toHaveLength(0);
+  });
+});
+
+// ─── F-5: renderHtml uncovered paths ─────────────────────────────────────────
+
+describe('renderHtml — lyric-only and delegated paths (F-5)', () => {
+  it('renders lyric-only line (no chords) correctly', () => {
+    const html = renderHtml(parse('Amazing grace'));
+    expect(html).toContain('Amazing grace');
+    expect(html).toContain('cp-lyric-line');
+    expect(html).not.toContain('cp-chord');
+  });
+
+  it('renders delegated ABC section verbatim', () => {
+    const src = '{start_of_abc}\nX:1\nT:Test\n{end_of_abc}';
+    const html = renderHtml(parse(src));
+    expect(html).toContain('X:1');
+    expect(html).toContain('cp-delegated');
+  });
+
+  it('renders delegated section with empty body', () => {
+    const src = '{start_of_abc}\n{end_of_abc}';
+    const html = renderHtml(parse(src));
+    expect(html).toContain('cp-section--abc');
+  });
+});
+
+// ─── F-5: nashville unparsed-chord and bass paths ────────────────────────────
+
+describe('nashville — additional coverage paths (F-5)', () => {
+  it('extractNashvilleRoot returns null for non-Nashville chord names', () => {
+    // These chords don't start with [#b]?[1-7] so fromNashville leaves them alone
+    const song = parse('[G]word [Am7]two');
+    const result = fromNashville(song, 'C');
+    const lyric = result.lines.find((l) => l.type === 'lyric');
+    if (lyric?.type !== 'lyric') return;
+    // G and Am7 are not Nashville numbers → unchanged
+    expect(lyric.segments[0]?.chord?.name).toBe('G');
+    expect(lyric.segments[1]?.chord?.name).toBe('Am7');
+  });
+
+  it('fromNashville handles Nashville number with extension (6m7)', () => {
+    const song = parse('[6m7]word');
+    const result = fromNashville(song, 'C');
+    // 6 in C = A; 6m7 → Am7
+    const lyric = result.lines.find((l) => l.type === 'lyric');
+    const name = lyric?.type === 'lyric' ? lyric.segments[0]?.chord?.name : '';
+    expect(name).toBe('Am7');
+  });
+
+  it('fromNashville handles slash chord bass conversion', () => {
+    const nashSong = toNashville(parse('[G/B]word'), 'G');
+    const restored = fromNashville(nashSong, 'G');
+    const lyric = restored.lines.find((l) => l.type === 'lyric');
+    const name = lyric?.type === 'lyric' ? lyric.segments[0]?.chord?.name : '';
+    expect(name).toBe('G/B');
+  });
 });

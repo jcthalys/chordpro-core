@@ -231,8 +231,13 @@ interface KeyGuess { key: string; confidence: number }
 
 #### `getChordShape(name, instrument, song?): DiagramData | null`
 
-Returns chord fingering data (no SVG, no drawing). Checks `{define}`d chords in
-the song first, then the built-in table (common guitar + ukulele open chords).
+Returns chord fingering data (no SVG, no drawing). Lookup priority:
+1. `{define}` / `{define-guitar}` / `{define-ukulele}` nodes in the song (instrument-selector respected)
+2. Built-in table: 110+ guitar shapes and 55+ ukulele shapes covering natural and
+   accidental major/minor, dominant 7th, major 7th, minor 7th, suspended, add9,
+   9th, diminished, augmented, 6th, and power chords
+3. Algorithmic barre fallback (guitar only): any simple major/minor chord not in the
+   table is derived from an E-shape or A-shape moveable barre pattern
 
 ```ts
 type instrument = 'guitar' | 'ukulele'

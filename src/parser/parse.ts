@@ -306,6 +306,11 @@ function buildChordDef(d: DirectiveLine): ChordDef {
     source: d.source,
   };
 
+  // {define-guitar:} / {define-ukulele:} — instrument selector
+  if (d.selector === 'guitar' || d.selector === 'ukulele') {
+    def.instrument = d.selector;
+  }
+
   const idx = (kw: string) => tokens.findIndex((t) => t.toLowerCase() === kw);
 
   // base-fret N

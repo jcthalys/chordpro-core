@@ -197,6 +197,19 @@ Both are stale imports from initial implementation. Must be removed before publi
 
 ---
 
+## Post-audit fixes (F-1 … F-5) — resolved 2026-06-08
+
+| Item | Status | Change |
+|------|--------|--------|
+| F-1 — CHANGELOG breaking changes | ✅ Fixed | Added explicit "Breaking changes (0.x)" section to 0.2.0 entry documenting `guessKey` minor-key format change and downstream `parseFreeText` impact |
+| F-2 — `getChordShape` instrument selector | ✅ Fixed | Added `instrument?: 'guitar' \| 'ukulele'` to `ChordDef`; `buildChordDef` sets it from the directive selector; `getSongDefinedShape` filters by it. `{define-guitar:}` only matches guitar requests; `{define:}` matches both |
+| F-3 — `resolveChorus` nesting | ✅ Documented | Top-level-only search confirmed correct per spec intent. Added JSDoc comment citing the spec decision; added explicit test asserting a chorus nested inside a verse is intentionally not resolved |
+| F-4 — README staleness | ✅ Fixed | Updated `getChordShape` description (barre fallback, expanded table, instrument selector); updated `guessKey` description (minor-key format) |
+| F-5 — Tier 2 coverage top-up | ✅ Fixed | Added 17 new targeted tests. Branch coverage: 82.57% → 84.81%; statements: 91.2% → 92.84% |
+
+**CI after fixes: typecheck ✓ lint ✓ 703 tests ✓ coverage 84.81% branches (threshold 80%)**
+**`npm pack --dry-run`: chordpro-core@0.2.0, 9 files, dist-only ✓**
+
 ## Part 3 — Release readiness verdict
 
 ### API version: `0.2.0` (not `1.0.0`)

@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 ## [0.2.0] — Spec completeness, Nashville, chord shapes, pre-release audit
 
+### Breaking changes (0.x)
+
+These are **behavioral changes** to existing Tier 2 helpers. No Tier 1 format
+constructs (parse, serialize, transpose, render) are affected.
+
+- **`guessKey` return value for minor keys changed.**
+  Previously the function returned the most-frequent root as a plain note name
+  (e.g. `"A"` for A minor). It now returns a qualified key string, matching the
+  ChordPro `{key}` metadata convention:
+  ```
+  // Before 0.2.0
+  guessKey('[Am]a [G]b [F]c [G]d [Am]e').key  // → "A"
+  // 0.2.0+
+  guessKey('[Am]a [G]b [F]c [G]d [Am]e').key  // → "Am"
+  ```
+  Consumers that compared `result.key === 'A'` for A minor must update to
+  `result.key === 'Am'` (or check `result.key.startsWith('A')`).
+
+- **`parseFreeText` key inference follows `guessKey` behavior.**
+  `parseFreeText` key auto-detection was rewired to call `guessKey` instead of
+  its own naïve root-frequency counter. As a consequence, inferred keys in the
+  `parseFreeText` output now also use the qualified minor format (`"Am"`, `"Em"`)
+  and use diatonic-coverage scoring (more accurate, but may differ from the old
+  counter on songs where the previous result was wrong).
+
 ### New Tier 1 APIs
 - **`applyTransposeDirectives(song)`** — applies in-song `{transpose: N}` directives to
   all subsequent chord content; called automatically by `renderText` / `renderHtml`

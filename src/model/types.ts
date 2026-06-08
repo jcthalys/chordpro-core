@@ -152,6 +152,12 @@ export interface ChordDef {
   copyAll?: boolean;
   /** Displayed name — may differ from the defined name. */
   display?: string;
+  /**
+   * Instrument this definition applies to.
+   * Set when the directive uses the `{define-guitar:}` / `{define-ukulele:}` selector form.
+   * Absent means the definition applies to any instrument.
+   */
+  instrument?: 'guitar' | 'ukulele';
   /** Original source for round-trip fidelity. */
   source: string;
 }

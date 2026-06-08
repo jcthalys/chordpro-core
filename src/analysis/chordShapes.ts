@@ -316,7 +316,7 @@ export function getChordShape(
 ): DiagramData | null {
   // Song-defined chords have highest priority
   if (song) {
-    const defined = getSongDefinedShape(name, song);
+    const defined = getSongDefinedShape(name, instrument, song);
     if (defined) return defined;
   }
 
@@ -330,9 +330,16 @@ export function getChordShape(
   return null;
 }
 
-function getSongDefinedShape(name: string, song: Song): DiagramData | null {
+/**
+ * Look for a song-defined chord shape, respecting the instrument selector.
+ * A `{define-guitar:}` / `{define-ukulele:}` node only satisfies a request
+ * for that instrument. A plain `{define:}` (no selector) applies to either.
+ */
+function getSongDefinedShape(name: string, instrument: 'guitar' | 'ukulele', song: Song): DiagramData | null {
   for (const line of song.lines) {
     if (line.type !== 'chord_def' || line.name !== name) continue;
+    // Instrument-specific define: only match the requested instrument
+    if (line.instrument !== undefined && line.instrument !== instrument) continue;
     return chordDefToShape(line);
   }
   return null;
