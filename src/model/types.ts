@@ -127,6 +127,35 @@ export interface TabLine {
   text: string;
 }
 
+/**
+ * A parsed `{define}` or `{chord}` directive — Tier 1 structured model.
+ * The spec marks these as "behavior: parse grammar"; structured fields
+ * are preferred over raw argument-string access.
+ */
+export interface ChordDef {
+  type: 'chord_def';
+  /** Chord name (e.g. "Am"). */
+  name: string;
+  /** Original directive name ('define' or 'chord') for round-trip. */
+  originalName: 'define' | 'chord';
+  /** Base fret position (1-indexed). Default 1. */
+  baseFret?: number;
+  /** Fret positions per string (-1 = muted, 0 = open). */
+  frets?: number[];
+  /** Finger numbers per string. */
+  fingers?: number[];
+  /** Keyboard instrument: intervals from root (0=root, 4=third, 7=fifth…). */
+  keys?: number[];
+  /** Copy diagram properties from another named chord. */
+  copy?: string;
+  /** When true, copy ALL properties (vs. inheritable subset). */
+  copyAll?: boolean;
+  /** Displayed name — may differ from the defined name. */
+  display?: string;
+  /** Original source for round-trip fidelity. */
+  source: string;
+}
+
 /** A grid block row. */
 export interface GridRow {
   type: 'grid_row';
@@ -152,7 +181,8 @@ export type Line =
   | SectionNode
   | ChorusReference
   | TabLine
-  | GridRow;
+  | GridRow
+  | ChordDef;
 
 // ─── Warning ─────────────────────────────────────────────────────────────────
 

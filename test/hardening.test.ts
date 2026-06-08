@@ -24,6 +24,7 @@ import {
   tokenize,
   renderText,
   renderHtml,
+  getChordShape,
   DIRECTIVE_ALIASES,
   KNOWN_DIRECTIVES,
 } from '../src/index.js';
@@ -146,6 +147,16 @@ describe('directive matrix — all known directives preserved', () => {
     const src = `{${info.name}${arg}}`;
     it(`{${info.name}} preserved as directive`, () => {
       const song = parse(src);
+      // chord-def directives are emitted as chord_def nodes, not directive nodes
+      if (info.category === 'chord-def') {
+        const def = song.lines.find((l) => l.type === 'chord_def');
+        expect(def).toBeDefined();
+        if (def?.type === 'chord_def') {
+          expect(def.originalName).toBe(info.name);
+          expect(serialize(song)).toContain(src);
+        }
+        return;
+      }
       const directive = song.lines.find((l) => l.type === 'directive');
       expect(directive).toBeDefined();
       if (directive?.type === 'directive') {
@@ -944,6 +955,76 @@ describe('{new_song} directive', () => {
     const ns = song.lines.find((l) => l.type === 'directive' && l.name === 'new_song');
     expect(ns).toBeDefined();
     expect(serialize(song)).toContain('{new_song}');
+  });
+});
+
+// ─── ChordDef structured model ───────────────────────────────────────────────
+
+describe('ChordDef structured model', () => {
+  it('{define} emits chord_def node, not directive', () => {
+    const song = parse('{define: Am base-fret 1 frets x 0 2 2 1 0}');
+    const def = song.lines.find((l) => l.type === 'chord_def');
+    expect(def).toBeDefined();
+    expect(song.lines.find((l) => l.type === 'directive' && (l as { name?: string }).name === 'define')).toBeUndefined();
+  });
+
+  it('{chord} emits chord_def with originalName chord', () => {
+    const song = parse('{chord: G base-fret 1 frets 3 2 0 0 0 3}');
+    const def = song.lines.find((l) => l.type === 'chord_def');
+    expect(def?.type === 'chord_def' && def.originalName).toBe('chord');
+  });
+
+  it('parses name correctly', () => {
+    const song = parse('{define: Cmaj7 base-fret 1 frets x 3 2 0 0 0}');
+    const def = song.lines.find((l) => l.type === 'chord_def');
+    expect(def?.type === 'chord_def' && def.name).toBe('Cmaj7');
+  });
+
+  it('parses base-fret', () => {
+    const song = parse('{define: Bm base-fret 2 frets x 1 3 3 2 1}');
+    const def = song.lines.find((l) => l.type === 'chord_def');
+    expect(def?.type === 'chord_def' && def.baseFret).toBe(2);
+  });
+
+  it('parses frets array', () => {
+    const song = parse('{define: Am base-fret 1 frets x 0 2 2 1 0}');
+    const def = song.lines.find((l) => l.type === 'chord_def');
+    expect(def?.type === 'chord_def' && def.frets).toEqual([-1, 0, 2, 2, 1, 0]);
+  });
+
+  it('parses fingers array', () => {
+    const song = parse('{define: Am base-fret 1 frets x 0 2 2 1 0 fingers 0 0 2 3 1 0}');
+    const def = song.lines.find((l) => l.type === 'chord_def');
+    expect(def?.type === 'chord_def' && def.fingers).toEqual([0, 0, 2, 3, 1, 0]);
+  });
+
+  it('parses keyboard keys syntax', () => {
+    const song = parse('{define: Cmaj keys 0 4 7}');
+    const def = song.lines.find((l) => l.type === 'chord_def');
+    expect(def?.type === 'chord_def' && def.keys).toEqual([0, 4, 7]);
+  });
+
+  it('parses display attribute', () => {
+    const song = parse('{define: Am base-fret 1 frets x 0 2 2 1 0 display="A minor"}');
+    const def = song.lines.find((l) => l.type === 'chord_def');
+    expect(def?.type === 'chord_def' && def.display).toBe('A minor');
+  });
+
+  it('round-trips via source', () => {
+    const src = '{define: Am base-fret 1 frets x 0 2 2 1 0 fingers 0 0 2 3 1 0}\nSome [Am]lyrics\n';
+    expect(serialize(parse(src))).toContain('{define: Am base-fret 1 frets x 0 2 2 1 0 fingers 0 0 2 3 1 0}');
+  });
+
+  it('getChordShape uses chord_def node directly', () => {
+    const song = parse('{define: Xm base-fret 1 frets x 0 2 2 1 0}');
+    const shape = getChordShape('Xm', 'guitar', song);
+    expect(shape).not.toBeNull();
+    expect(shape?.frets).toEqual([-1, 0, 2, 2, 1, 0]);
+  });
+
+  it('no warnings emitted for {define}', () => {
+    const song = parse('{define: Am base-fret 1 frets x 0 2 2 1 0}');
+    expect(song.warnings).toHaveLength(0);
   });
 });
 

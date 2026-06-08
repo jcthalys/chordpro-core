@@ -58,6 +58,7 @@ export type {
   TabLine,
   GridRow,
   GridCell,
+  ChordDef,
   Line,
   Warning,
   Song,
