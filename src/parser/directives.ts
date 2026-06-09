@@ -48,6 +48,7 @@ export const DIRECTIVE_ALIASES: Readonly<Record<string, string>> = {
   ng: 'no_grid',
   cf: 'chordfont',
   cs: 'chordsize',
+  bpm: 'tempo',
 };
 
 /** Normalize a directive name: alias → canonical. Unknown names returned as-is. */

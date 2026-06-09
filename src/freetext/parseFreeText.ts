@@ -184,17 +184,29 @@ function matchMetaLine(line: string): MetaEntry[] | null {
   m = t.match(/^[áa]lbum\s*:\s*(.+)$/i);
   if (m) return [entry('album', m[1]!.trim())];
 
-  // "Ano: N"
-  m = t.match(/^ano\s*:\s*(\d{3,4})$/i);
-  if (m) return [entry('year', m[1]!.trim())];
-
   // "Compositor: X" / "Composição: X" / "Composicao: X"
   m = t.match(/^(?:compositor|composi[cç][aã]o)\s*:\s*(.+)$/i);
+  if (m) return [entry('composer', m[1]!.trim())];
+
+  // "Composer: X" (English)
+  m = t.match(/^composer\s*:\s*(.+)$/i);
   if (m) return [entry('composer', m[1]!.trim())];
 
   // "Letrista: X"
   m = t.match(/^letrista\s*:\s*(.+)$/i);
   if (m) return [entry('lyricist', m[1]!.trim())];
+
+  // "Lyricist: X" (English)
+  m = t.match(/^lyricist\s*:\s*(.+)$/i);
+  if (m) return [entry('lyricist', m[1]!.trim())];
+
+  // "Ano: N"
+  m = t.match(/^ano\s*:\s*(\d{3,4})$/i);
+  if (m) return [entry('year', m[1]!.trim())];
+
+  // "Year: N" (English)
+  m = t.match(/^year\s*:\s*(\d{3,4})$/i);
+  if (m) return [entry('year', m[1]!.trim())];
 
   // "CCLI: N"
   m = t.match(/^ccli\s*:\s*(.+)$/i);

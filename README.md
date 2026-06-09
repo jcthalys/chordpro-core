@@ -317,6 +317,76 @@ type instrument = 'guitar' | 'ukulele'
 interface DiagramData { baseFret: number; frets: number[]; fingers?: number[] }
 ```
 
+#### `toInline(song): Song`
+
+Convert a song from chords-above-lyrics format to inline `[G]word` format. Each
+chord-only line is merged with the immediately following lyric line using
+Unicode-aware column matching. Lines that already have inline chords, and all
+non-lyric lines, pass through unchanged.
+
+#### `toAbove(song): Song`
+
+Convert a song from inline `[G]word` format to chords-above-lyrics format. Each
+lyric line with inline chords is split into a chord-only line above and a
+lyric-only line below. Column widths follow the same formula as `renderText`.
+Lines that are already chord-only or have no chords pass through unchanged.
+
+Both functions are pure transforms (return new `Song`, do not mutate input) and
+are idempotent. These are **display-transform helpers** — use them to switch
+the visual format for rendering without modifying the stored content:
+
+```ts
+// Display toggle — does not modify stored content
+const display = showAbove ? toAbove(song) : toInline(song)
+```
+
+#### `toSimpleText(song, options?): string`
+
+Convert a Song to natural human-readable plain text with no ChordPro directive
+syntax. Intended for display contexts where the user should see lyrics without
+markup, or as the inverse of `parseFreeText`.
+
+- Metadata emitted as natural-text lines: title and artist bare, others as
+  `Key: G`, `Capo: 2`, `BPM: 120`, `Composer: X`, `Lyricist: X`, etc.
+- `{meta: K V}` pairs emitted as `K: V`
+- Sections emitted as plain headings (`Verse 1`, `Chorus`, `Pre-Chorus`, …)
+  followed by content, separated by blank lines
+- `options.chords`: `'above'` (default) or `'inline'`
+  - `'above'`: chord names on their own line without brackets —
+    compatible with `parseFreeText` on re-import
+  - `'inline'`: `[G]word` inline notation
+
+Round-trip: `parseFreeText(toSimpleText(song))` reconstructs the same
+metadata and section structure as the original song.
+
+#### `toDirectiveText(song, options?): string`
+
+Convert a Song to standard ChordPro with directive syntax. Equivalent to
+`serialize()` with the chord mode applied. `options.chords` controls the chord
+display format (default `'above'`).
+
+#### `toRawText(song, options?): string`
+
+Full-fidelity ChordPro serialization with chord mode applied.
+`toRawText(song, { chords: 'inline' })` ≈ `serialize(song)` for a song with
+inline chords.
+
+```ts
+interface ConverterOptions {
+  chords?: 'above' | 'inline'; // default: 'above'
+}
+
+// Natural text — no directives
+const sheet = toSimpleText(song);                        // chords above (default)
+const sheet = toSimpleText(song, { chords: 'inline' }); // [G]word inline
+
+// ChordPro with directives
+const cp = toDirectiveText(song, { chords: 'inline' }); // ≈ serialize(song)
+
+// Round-trip through parseFreeText
+const { metadata, chordpro } = parseFreeText(toSimpleText(song));
+```
+
 #### `toNashville(song, key) / fromNashville(song, key)`
 
 Nashville Number System conversion. Replaces chord roots with scale degrees (1–7)

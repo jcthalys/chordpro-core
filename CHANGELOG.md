@@ -2,6 +2,93 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.1] — Format converters: `toInline`, `toAbove`, `toSimpleText`, `toDirectiveText`, `toRawText`
+
+### New Tier 2 APIs
+
+**`toInline(song): Song`** — Convert a song from chords-above-lyrics format to
+inline `[G]word` format. Each chord-only line is merged with the immediately
+following lyric line using Unicode-aware column matching (same algorithm as
+`parseFreeText`'s chord-above-lyrics merger). Chord positions snap forward to
+the next word boundary when they fall inside a space run. All non-lyric lines
+(directives, blanks, comments, sections, tab/grid rows) and lines that already
+have inline chords pass through unchanged. Recurses into section environments.
+
+**`toAbove(song): Song`** — Convert a song from inline `[G]word` format to
+chords-above-lyrics format. Each lyric line that contains inline chords is split
+into two consecutive lines: a chord-only line above and a lyric-only line below.
+Column widths follow the same formula as `renderText` for visual consistency.
+Lines that are already chord-only, pure lyric lines with no chords, and all
+non-lyric lines pass through unchanged. Recurses into section environments.
+
+Both functions are pure transforms — they return a new `Song` and do not mutate
+their input. Useful as display transforms when toggling between sheet formats
+without modifying the stored content.
+
+```ts
+// Display toggle — does not modify stored content
+const display = showAbove ? toAbove(song) : toInline(song)
+```
+
+**`toSimpleText(song, options?): string`** — Convert a Song to natural
+human-readable plain text with no ChordPro directive syntax.
+
+- Metadata emitted as natural-text lines: title and artist bare (no label),
+  others as `Key: G`, `Capo: 2`, `BPM: 120`, `Composer: X`, etc.
+- `{meta: K V}` custom pairs emitted as `K: V`
+- Sections emitted as plain headings + content, separated by blank lines;
+  unlabeled sections use kind-based headings (`Chorus`, `Bridge`, `Pre-Chorus`, …)
+- `options.chords`:
+  - `'above'` (default): chord names on their own line without brackets, for
+    `parseFreeText` round-trip compatibility
+  - `'inline'`: `[G]word` inline notation
+- Comment directives become `# …` lines; all other directives are omitted
+
+Round-trip: `parseFreeText(toSimpleText(song))` reconstructs the same metadata
+and section structure as the original song. Chord column positions may have minor
+whitespace normalization.
+
+**`toDirectiveText(song, options?): string`** — Convert a Song to standard
+ChordPro with directive syntax. Equivalent to `serialize()` with the chord mode
+applied; all existing directives are preserved. `options.chords` controls the
+chord display format (default `'above'`).
+
+**`toRawText(song, options?): string`** — Full-fidelity ChordPro serialization
+with chord mode applied. Currently produces identical output to `toDirectiveText`.
+`toRawText(song, { chords: 'inline' })` ≈ `serialize(song)` for a song with
+inline chords.
+
+All three accept `ConverterOptions { chords?: 'above' | 'inline' }`.
+
+### parseFreeText — English metadata patterns
+
+Added English-language metadata recognition to support the `toSimpleText`
+round-trip contract:
+
+| Input line | Directive emitted |
+|---|---|
+| `Composer: X` | `{composer: X}` |
+| `Lyricist: X` | `{lyricist: X}` |
+| `Year: N` | `{year: N}` |
+
+These complement the existing Portuguese equivalents (`Compositor:`,
+`Letrista:`, `Ano:`).
+
+### Round-trip and idempotency (`toInline`/`toAbove`)
+
+`toInline(toAbove(song))` and `toAbove(toInline(song))` both preserve lyric
+content exactly. Chord positions may have minor whitespace normalization
+(equivalent to what `renderText` produces for alignment). Both functions are
+idempotent: `toInline(toInline(song)) === toInline(song)`.
+
+### Tests
+
+- 75 new tests (880 total): format converters (toSimpleText metadata, sections,
+  chord modes, round-trips; toDirectiveText/toRawText inline parity with
+  serialize; English parseFreeText patterns) + toInline/toAbove unit tests.
+
+---
+
 ## [0.3.0] — Brazilian/Portuguese chord sheet support + sounding key
 
 ### New Tier 1 APIs

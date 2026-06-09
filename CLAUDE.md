@@ -38,9 +38,10 @@ test/ mirrors src/, fixtures in test/fixtures
 
 **Tier 1 + Tier 2 complete; playground deployed. See COVERAGE.md for full spec audit.**
 
-- 805 tests, 11 test files — all passing
-- Coverage: 94.5% statements / 87.2% branches / 96.8% functions / 96.7% lines
+- 831 tests, 12 test files — all passing
+- Coverage: 94.5% statements / 87.3% branches / 97.1% functions / 96.7% lines
 - TypeScript strict, ESLint, build — all clean
+- v0.3.1: `toInline`/`toAbove`; `toSimpleText`/`toDirectiveText`/`toRawText` format converters; English parseFreeText patterns (`Composer:`, `Lyricist:`, `Year:`)
 - v0.3.0: `soundingKey`/`soundingKeyOf`; extended Brazilian/Portuguese `parseFreeText`
 
 ## Key implementation details (for future sessions)

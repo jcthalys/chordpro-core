@@ -42,6 +42,9 @@ export { getChordShape } from './analysis/chordShapes.js';
 export type { DiagramData } from './analysis/chordShapes.js';
 
 export { toNashville, fromNashville } from './chords/nashville.js';
+export { toInline, toAbove } from './chords/format.js';
+export { toSimpleText, toDirectiveText, toRawText } from './format/converters.js';
+export type { ConverterOptions } from './format/converters.js';
 
 export { ALL_EXTENSIONS, STRICT_EXTENSIONS, MINOR_EXTENSIONS } from './chords/extensions.js';
 
