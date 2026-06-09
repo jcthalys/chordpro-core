@@ -453,6 +453,111 @@ describe('parseFreeText', () => {
     });
   });
 
+  // ── Ultimate Guitar (UG) format support ──────────────────────────────────
+  describe('Ultimate Guitar format support', () => {
+    describe('bracketed numbered headings (Issue 2a)', () => {
+      it('[Verse 1] produces start_of_verse with label "Verse 1"', () => {
+        const r = parseFreeText('Song\nArtist\n\n[Verse 1]\nHello world');
+        expect(r.chordpro).toContain('{start_of_verse label="Verse 1"}');
+        expect(r.chordpro).toContain('{end_of_verse}');
+      });
+
+      it('[Verse 2] produces start_of_verse with label "Verse 2"', () => {
+        const r = parseFreeText('Song\nArtist\n\n[Verse 2]\nSecond verse');
+        expect(r.chordpro).toContain('{start_of_verse label="Verse 2"}');
+      });
+
+      it('[Chorus] produces start_of_chorus', () => {
+        const r = parseFreeText('Song\nArtist\n\n[Chorus]\nSing along');
+        expect(r.chordpro).toContain('{start_of_chorus');
+      });
+
+      it('[Bridge 1] produces start_of_bridge with label "Bridge 1"', () => {
+        const r = parseFreeText('Song\nArtist\n\n[Bridge 1]\nBridge line');
+        expect(r.chordpro).toContain('{start_of_bridge label="Bridge 1"}');
+        expect(r.chordpro).toContain('{end_of_bridge}');
+      });
+
+      it('[Bridge 2] produces start_of_bridge with label "Bridge 2"', () => {
+        const r = parseFreeText('Song\nArtist\n\n[Bridge 2]\nAnother bridge');
+        expect(r.chordpro).toContain('{start_of_bridge label="Bridge 2"}');
+      });
+
+      it('[Pre-Chorus] produces start_of_prechorus', () => {
+        const r = parseFreeText('Song\nArtist\n\n[Pre-Chorus]\nBuilding up');
+        expect(r.chordpro).toContain('{start_of_prechorus');
+      });
+
+      it('[Intro] is recognised as a section heading (not treated as lyric)', () => {
+        const r = parseFreeText('Song\nArtist\n\n[Intro]\nF#m E');
+        expect(r.chordpro).toContain('{start_of_verse');
+        // The body content should NOT include the literal text "[Intro]"
+        expect(r.chordpro).not.toContain('[Intro]');
+      });
+
+      it('[Outro] is recognised as a section heading (not treated as lyric)', () => {
+        const r = parseFreeText('Song\nArtist\n\n[Outro]\nF#m');
+        expect(r.chordpro).toContain('{start_of_verse');
+        expect(r.chordpro).not.toContain('[Outro]');
+      });
+    });
+
+    describe('UG metadata lines (Issue 2b)', () => {
+      it('Key: E → key directive', () => {
+        const r = parseFreeText('Song\nArtist\nKey: E\n\nLyric');
+        expect(r.metadata.get('key')).toBe('E');
+        expect(r.chordpro).toContain('{key: E}');
+      });
+
+      it('Capo: 2 → capo directive', () => {
+        const r = parseFreeText('Song\nArtist\nCapo: 2\n\nLyric');
+        expect(r.metadata.get('capo')).toBe('2');
+        expect(r.chordpro).toContain('{capo: 2}');
+      });
+
+      it('Capo: No capo → no capo directive emitted', () => {
+        const r = parseFreeText('Song\nArtist\nKey: E\nCapo: No capo\n\nLyric');
+        expect(r.chordpro).not.toContain('{capo:');
+        // "Capo: No capo" must not be treated as title/artist/lyric
+        expect(r.chordpro).not.toContain('No capo');
+      });
+
+      it('"No capo" standalone line → no capo directive emitted', () => {
+        const r = parseFreeText('Song\nArtist\nNo capo\n\nLyric');
+        expect(r.chordpro).not.toContain('{capo:');
+        expect(r.chordpro).not.toContain('No capo');
+      });
+
+      it('Tuning: E A D G B E → tuning meta', () => {
+        const r = parseFreeText('Song\nArtist\nTuning: E A D G B E\n\nLyric');
+        expect(r.metadata.get('tuning')).toBe('E A D G B E');
+        expect(r.chordpro).toContain('{meta: tuning E A D G B E}');
+        // Must not appear in song body
+        expect(r.chordpro).not.toMatch(/^Tuning:/m);
+      });
+    });
+
+    describe('UG chord-above-lyrics alignment (Issue 2c)', () => {
+      it('merges UG-style chord-above-lyrics pair placing chords at correct columns', () => {
+        // UG format uses space-alignment — chords above their syllable
+        // G at col 0, C at col 8: "G       C"
+        // Lyric: "Amazing grace" — 'A'=0 … ' '=7, 'g'=8
+        const r = parseFreeText('Song\nArtist\n\nG       C\nAmazing grace');
+        expect(r.chordpro).toContain('[G]Amazing ');
+        expect(r.chordpro).toContain('[C]grace');
+      });
+
+      it('all four chords from UG intro line appear in output', () => {
+        // UG orphan chord line: each chord is bracket-wrapped and space-separated
+        const r = parseFreeText('Song\nArtist\n\nF#m E C#m B');
+        expect(r.chordpro).toContain('[F#m]');
+        expect(r.chordpro).toContain('[E]');
+        expect(r.chordpro).toContain('[C#m]');
+        expect(r.chordpro).toContain('[B]');
+      });
+    });
+  });
+
   // ── Accent-aware column alignment ────────────────────────────────────────
   describe('accent-aware column alignment', () => {
     it('chords above Portuguese lyrics with accents align to correct syllable', () => {

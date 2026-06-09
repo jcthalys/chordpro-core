@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.4] — parseFreeText: Ultimate Guitar format support
+
+### Fixed
+- `Capo: No capo` (and standalone `No capo`) — recognised as a metadata line
+  meaning capo 0; consumed without emitting a `{capo:}` directive.
+- `Tuning: E A D G B E` — new recognised metadata key; emitted as
+  `{meta: tuning E A D G B E}`.
+- UG bracketed numbered headings (`[Verse 1]`, `[Bridge 1]`, `[Bridge 2]`,
+  `[Pre-Chorus]`) already worked via the existing `\b`-anchored patterns.
+  Added tests confirming correct label propagation.
+
 ## [0.3.1] — Format converters: `toInline`, `toAbove`, `toSimpleText`, `toDirectiveText`, `toRawText`
 
 ### New Tier 2 APIs

@@ -136,6 +136,15 @@ function matchMetaLine(line: string): MetaEntry[] | null {
   m = t.match(/^capo\s*:?\s*(\d+)$/i);
   if (m) return [entry('capo', m[1]!.trim())];
 
+  // "Capo: No capo" / "Capo: none" / "No capo" — UG format for no capo (= capo 0)
+  // Return empty array: consume the line as metadata, emit no directive.
+  m = t.match(/^(?:capo\s*:\s*)?no\s+capo$/i);
+  if (m) return [];
+
+  // "Tuning: E A D G B E" — UG standard-tuning annotation
+  m = t.match(/^tuning\s*:\s*(.+)$/i);
+  if (m) return [entry('tuning', m[1]!.trim())];
+
   // "Afinação: X" / "Afinacao: X"
   m = t.match(/^afina[cç][aã]o\s*:\s*(.+)$/i);
   if (m) return [entry('afinacao', m[1]!.trim())];
