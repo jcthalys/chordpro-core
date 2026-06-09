@@ -54,22 +54,29 @@ function matchHeading(line: string): HeadingMatch | null {
   const text = rawText.endsWith(':') ? rawText.slice(0, -1).trim() : rawText;
   if (!text) return null;
 
+  // Normalise compact "Word+digit" forms: "Verse1" → base="Verse", num="1".
+  // \b fails between a letter and a digit (both are \w), so we split first and
+  // test the base word, then reassemble the label with a space: "Verse 1".
+  const compactNum = text.match(/^(.+?)\s*(\d+)$/);
+  const base = compactNum ? compactNum[1]!.trimEnd() : text;
+  const num = compactNum ? compactNum[2] : undefined;
+
   let kind: HeadingMatch['kind'] | null = null;
 
   // Pre-chorus — check before chorus to avoid "pre" swallowing "chorus"
-  if (/^pr[eé][- ]?(?:refrão|refrao|coro)\b|^pr[eé][- ]?chorus\b/i.test(text)) {
+  if (/^pr[eé][- ]?(?:refrão|refrao|coro)\b|^pr[eé][- ]?chorus\b/i.test(base)) {
     kind = 'prechorus';
-  } else if (/^(?:chorus|coro|refr[aã]o)\b/i.test(text)) {
+  } else if (/^(?:chorus|coro|refr[aã]o)\b/i.test(base)) {
     kind = 'chorus';
-  } else if (/^(?:verse|verso|estrofe)\b/i.test(text)) {
+  } else if (/^(?:verse|verso|estrofe)\b/i.test(base)) {
     kind = 'verse';
-  } else if (/^(?:bridge|ponte)\b/i.test(text)) {
+  } else if (/^(?:bridge|ponte)\b/i.test(base)) {
     kind = 'bridge';
-  } else if (/^(?:intro|introdu[cç][aã]o|abertura)\b/i.test(text)) {
+  } else if (/^(?:intro|introdu[cç][aã]o|abertura)\b/i.test(base)) {
     kind = 'verse';
-  } else if (/^(?:outro|final|finaliza[cç][aã]o|coda)\b/i.test(text)) {
+  } else if (/^(?:outro|final|finaliza[cç][aã]o|coda|tag)\b/i.test(base)) {
     kind = 'verse';
-  } else if (/^(?:interl[uú]dio|solo|instrumental|riff)\b/i.test(text)) {
+  } else if (/^(?:interl[uú]dio|solo|instrumental|riff)\b/i.test(base)) {
     kind = 'verse';
   }
 
@@ -78,7 +85,14 @@ function matchHeading(line: string): HeadingMatch | null {
   if (!kind) return null;
   if (!isBracketed && kind === null) return null;
 
-  const result: HeadingMatch = { kind, label: text };
+  // Chorus / pre-chorus labels carry no meaningful number — normalise to base only.
+  // Verse, bridge, and other kinds keep the number: "Verse 1", "Bridge 2", etc.
+  const labelBase = (kind === 'chorus' || kind === 'prechorus') ? base : base;
+  const label = (kind === 'chorus' || kind === 'prechorus' || num === undefined)
+    ? labelBase
+    : `${labelBase} ${num}`;
+
+  const result: HeadingMatch = { kind, label };
   if (repeatCount !== undefined) result.repeatCount = repeatCount;
   return result;
 }

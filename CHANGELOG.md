@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.5] — parseFreeText: compact section headings without space before number
+
+### Fixed
+- `matchHeading` now recognises compact forms like `Verse1`, `Bridge1`,
+  `Chorus1`, `Verso1` (no space between word and digit). The `\b` word-boundary
+  anchor fails between a letter and a digit (both `\w`), so the numeric suffix
+  is stripped before pattern matching and re-attached with a normalising space:
+  `Verse1` → label `"Verse 1"`, `Verso1` → label `"Verso 1"`, etc.
+- Chorus and pre-chorus headings strip the number from their label (same
+  existing behaviour for spaced forms like `Chorus 1` → label `"Chorus"`).
+- Spaced forms (`Verse 1`, `Verse 2`, `Bridge 2`, etc.) continue to work
+  unchanged — the new suffix-split is a no-op when a space is already present.
+
 ## [0.3.4] — parseFreeText: Ultimate Guitar format support
 
 ### Fixed

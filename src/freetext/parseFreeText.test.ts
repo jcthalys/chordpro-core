@@ -76,6 +76,43 @@ describe('parseFreeText', () => {
       const result = parseFreeText('Song\nArtist\n\nPonte\nLinha');
       expect(result.chordpro).toContain('{start_of_bridge');
     });
+
+    it('compact Verse1 (no space) detected as verse', () => {
+      const result = parseFreeText('Song\nArtist\n\nVerse1\nLine');
+      expect(result.chordpro).toContain('{start_of_verse');
+      expect(result.chordpro).toContain('Verse 1');
+    });
+
+    it('compact Verse2 (no space) detected with normalised label', () => {
+      const result = parseFreeText('Song\nArtist\n\nVerse2\nLine');
+      expect(result.chordpro).toContain('{start_of_verse');
+      expect(result.chordpro).toContain('Verse 2');
+    });
+
+    it('compact Bridge1 (no space) detected as bridge', () => {
+      const result = parseFreeText('Song\nArtist\n\nBridge1\nLine');
+      expect(result.chordpro).toContain('{start_of_bridge');
+      expect(result.chordpro).toContain('Bridge 1');
+    });
+
+    it('compact Chorus1 (no space) detected as chorus with no number in label', () => {
+      const result = parseFreeText('Song\nArtist\n\nChorus1\nSing');
+      expect(result.chordpro).toContain('{start_of_chorus');
+      // Chorus strips the number from label
+      expect(result.chordpro).not.toContain('Chorus 1');
+    });
+
+    it('compact Verso1 (Portuguese, no space) detected as verse', () => {
+      const result = parseFreeText('Song\nArtist\n\nVerso1\nLinha');
+      expect(result.chordpro).toContain('{start_of_verse');
+      expect(result.chordpro).toContain('Verso 1');
+    });
+
+    it('spaced Verse 2 still works after refactor', () => {
+      const result = parseFreeText('Song\nArtist\n\nVerse 2\nLine');
+      expect(result.chordpro).toContain('{start_of_verse');
+      expect(result.chordpro).toContain('Verse 2');
+    });
   });
 
   describe('chord-above-lyrics merge', () => {
