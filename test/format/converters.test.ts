@@ -147,6 +147,17 @@ describe('toSimpleText', () => {
     expect(toSimpleText(song)).toContain('Pre-Chorus');
   });
 
+  it('normalises compact label Verse1 → "Verse 1" in output', () => {
+    const song = parseSong('{start_of_verse: Verse1}\n[G]line\n{end_of_verse}');
+    expect(toSimpleText(song)).toContain('Verse 1');
+    expect(toSimpleText(song)).not.toContain('Verse1');
+  });
+
+  it('normalises compact label Bridge2 → "Bridge 2" in output', () => {
+    const song = parseSong('{start_of_bridge: Bridge2}\n[G]line\n{end_of_bridge}');
+    expect(toSimpleText(song)).toContain('Bridge 2');
+  });
+
   it('sections separated by blank lines', () => {
     const song = parseSong(SAMPLE);
     const text = toSimpleText(song);

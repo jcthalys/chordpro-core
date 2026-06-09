@@ -158,8 +158,10 @@ function renderSectionSimple(section: SectionNode, isAbove: boolean): string[] {
 
   // Use stored label when available; fall back to kind-to-heading mapping so
   // parseFreeText can re-detect the section kind on a round-trip.
-  const heading =
+  // Normalise compact labels: "Verse1" → "Verse 1" so the round-trip works.
+  const rawHeading =
     section.label ?? KIND_TO_HEADING[section.kind] ?? capitalize(section.kind);
+  const heading = rawHeading.replace(/([A-Za-zÀ-ÿ])(\d+)$/, '$1 $2');
   out.push(heading);
 
   for (const child of section.lines) {

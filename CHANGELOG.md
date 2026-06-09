@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.6] — Resilient section heading detection + toSimpleText normalisation
+
+### Fixed
+- `matchHeading` in `parseFreeText`: compact forms `Verse1`, `VERSE1`,
+  `verse 1`, `Chorus1`, `Bridge2`, `Verso1` all detected correctly.
+  The fix (splitting the numeric suffix before `\b`-anchored regex testing)
+  was in the 0.3.5 source but the published dist was built from an older
+  state. 0.3.6 guarantees the dist matches the source.
+- `toSimpleText` (`renderSectionSimple`): compact labels stored in ChordPro
+  directives — e.g. `{start_of_verse: Verse1}` — are normalised in the
+  output: `Verse1 → Verse 1`, `Bridge2 → Bridge 2`. Ensures round-trip
+  through `parseFreeText` works even for songs imported with compact labels.
+
 ## [0.3.5] — parseFreeText: compact section headings without space before number
 
 ### Fixed
