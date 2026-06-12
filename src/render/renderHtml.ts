@@ -108,15 +108,29 @@ function renderSegmentHtml(seg: Segment): string {
   return `<span class="cp-segment">${chordHtml}${lyricHtml}</span>`;
 }
 
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function repeatOf(section: SectionNode): string | undefined {
+  const first = section.lines[0];
+  if (first?.type !== 'directive' || first.name !== 'meta') return undefined;
+  const arg = first.argument ?? '';
+  const m = arg.match(/^repeat\s+(\d+)$/);
+  return m ? m[1] : undefined;
+}
+
 function renderSectionHtml(section: SectionNode): string {
   const kindClass = `cp-section--${section.kind}`;
-  const labelHtml = section.label
-    ? `<div class="cp-section-label">${esc(section.label)}</div>`
-    : '';
+  const dataKind = `data-kind="${section.kind}"`;
+  const repeat = repeatOf(section);
+  const dataRepeat = repeat !== undefined ? ` data-repeat="${repeat}"` : '';
+  const labelText = section.label ?? capitalize(section.kind);
+  const labelHtml = `<div class="cp-section-label">${esc(labelText)}</div>`;
 
   if (section.delegated) {
     const content = section.rawContent ? esc(section.rawContent) : '';
-    return `<div class="cp-section ${kindClass}">${labelHtml}<pre class="cp-delegated">${content}</pre></div>`;
+    return `<div class="cp-section ${kindClass}" ${dataKind}${dataRepeat}>${labelHtml}<pre class="cp-delegated">${content}</pre></div>`;
   }
 
   if (section.kind === 'tab') {
@@ -126,11 +140,11 @@ function renderSectionHtml(section: SectionNode): string {
 
   if (section.kind === 'grid') {
     const rows = section.lines.map(renderLineHtml).filter(Boolean).join('\n');
-    return `<div class="cp-section ${kindClass} cp-grid">${labelHtml}${rows}</div>`;
+    return `<div class="cp-section ${kindClass} cp-grid" ${dataKind}${dataRepeat}>${labelHtml}${rows}</div>`;
   }
 
   const inner = section.lines.map(renderLineHtml).filter(Boolean).join('\n');
-  return `<div class="cp-section ${kindClass}">${labelHtml}${inner}</div>`;
+  return `<div class="cp-section ${kindClass}" ${dataKind}${dataRepeat}>${labelHtml}${inner}</div>`;
 }
 
 /** Escape HTML special characters. */

@@ -8,8 +8,15 @@
  * This is an auxiliary helper, not part of the ChordPro format specification.
  */
 
-import { METADATA_DIRECTIVES } from '../parser/directives.js';
-import { normalizeName } from '../parser/directives.js';
+import { METADATA_DIRECTIVES, KNOWN_DIRECTIVES, normalizeName } from '../parser/directives.js';
+import type { DirectiveCategory } from '../parser/directives.js';
+
+export type { DirectiveCategory };
+
+/** Lookup from canonical directive name → category, built once at module load. */
+const DIRECTIVE_CATEGORY_MAP: ReadonlyMap<string, DirectiveCategory> = new Map(
+  KNOWN_DIRECTIVES.map((d) => [d.name, d.category]),
+);
 
 export interface Token {
   type:
@@ -27,6 +34,13 @@ export interface Token {
   start: number;
   /** Byte offset in source (exclusive). */
   end: number;
+  /**
+   * Directive category from the known-directive registry.
+   * Present only on directive-type tokens (`metadata-directive`, `section-open`,
+   * `section-end`, `directive`) whose name is in `KNOWN_DIRECTIVES`.
+   * Absent for unknown/custom directives and for non-directive token types.
+   */
+  category?: DirectiveCategory;
 }
 
 /** Tokenize ChordPro source for syntax highlighting. */
@@ -126,7 +140,10 @@ function tokenizeDirectiveLine(
     });
   }
 
-  tokens.push({ type, text: directiveText, start: directiveStart, end: directiveEnd });
+  const category = DIRECTIVE_CATEGORY_MAP.get(canonical);
+  const tok: Token = { type, text: directiveText, start: directiveStart, end: directiveEnd };
+  if (category !== undefined) tok.category = category;
+  tokens.push(tok);
 
   // Trailing content
   const trailingStart = directiveEnd;

@@ -25,7 +25,7 @@ export type { TextRenderOptions } from './render/renderText.js';
 export { renderHtml } from './render/renderHtml.js';
 export type { HtmlRenderOptions } from './render/renderHtml.js';
 
-export { DIRECTIVE_ALIASES, KNOWN_DIRECTIVES } from './parser/directives.js';
+export { DIRECTIVE_ALIASES, KNOWN_DIRECTIVES, categoryOf, DIRECTIVES_BY_CATEGORY } from './parser/directives.js';
 export type { DirectiveInfo, DirectiveCategory } from './parser/directives.js';
 
 // ── Tier 2: auxiliary helpers (not part of the format) ──────────────────────

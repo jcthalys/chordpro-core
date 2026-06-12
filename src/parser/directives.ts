@@ -245,3 +245,28 @@ const _knownNames = new Set(KNOWN_DIRECTIVES.map((d) => d.name));
 export function isKnownDirective(canonicalName: string): boolean {
   return _knownNames.has(canonicalName);
 }
+
+/** Returns the category for a canonical directive name, or `undefined` if not found. */
+export function categoryOf(name: string): DirectiveCategory | undefined {
+  return KNOWN_DIRECTIVES.find((d) => d.name === name)?.category;
+}
+
+/** All canonical directive names grouped by category. */
+export const DIRECTIVES_BY_CATEGORY: Readonly<Record<DirectiveCategory, readonly string[]>> = (() => {
+  const acc: Record<DirectiveCategory, string[]> = {
+    preamble: [],
+    metadata: [],
+    formatting: [],
+    'environment-open': [],
+    'environment-close': [],
+    'chord-def': [],
+    transposition: [],
+    'output-layout': [],
+    'tier2-metadata': [],
+    unknown: [],
+  };
+  for (const d of KNOWN_DIRECTIVES) {
+    acc[d.category].push(d.name);
+  }
+  return acc;
+})();
