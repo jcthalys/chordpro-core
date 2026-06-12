@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] — Category token, categoryOf, data-repeat, data-kind (Sprint 14 CRs)
+
+### Added
+- **CR14-1** `Token.category?: DirectiveCategory` — directive tokens now carry
+  their category from `KNOWN_DIRECTIVES`. Non-directive tokens (`chord`, `lyric`,
+  `annotation`, `comment`) leave `category` absent.
+- **CR14-2** `categoryOf(name: string): DirectiveCategory | undefined` — returns
+  the category for a canonical directive name. Re-exported from the root index.
+- **CR14-2** `DIRECTIVES_BY_CATEGORY: Readonly<Record<DirectiveCategory, readonly string[]>>`
+  — all canonical names grouped by category, derived from `KNOWN_DIRECTIVES`.
+  Re-exported from the root index.
+- **CR14-3** `renderHtml` emits `data-repeat="N"` on `.cp-section` when the
+  first body directive is `{meta: repeat N}`. Sections without a repeat meta
+  emit no `data-repeat` attribute.
+- **CR14-4** `renderHtml` always emits `data-kind="{kind}"` on `.cp-section`
+  elements. When no explicit label is set, emits a `.cp-section-label` with
+  text `capitalize(kind)` (e.g. "Verse", "Chorus", "Bridge") as a fallback.
+
 ## [0.3.6] — Resilient section heading detection + toSimpleText normalisation
 
 ### Fixed
