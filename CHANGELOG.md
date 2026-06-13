@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.4.0] — Category token, categoryOf, data-repeat, data-kind (Sprint 14 CRs)
+## [0.4.0] — Category token, categoryOf, data-repeat, data-kind, parseFreeText EN+PT (Sprint 14 CRs)
 
 ### Added
 - **CR14-1** `Token.category?: DirectiveCategory` — directive tokens now carry
@@ -19,6 +19,14 @@ All notable changes to this project will be documented in this file.
 - **CR14-4** `renderHtml` always emits `data-kind="{kind}"` on `.cp-section`
   elements. When no explicit label is set, emits a `.cp-section-label` with
   text `capitalize(kind)` (e.g. "Verse", "Chorus", "Bridge") as a fallback.
+- **CR14-5** `parseFreeText` extended with additional EN/PT labelled and bare
+  metadata patterns:
+  - `Fórmula: X` (Portuguese short form, without "de compasso") → `time` when
+    value is `N/N`, otherwise `meta: compasso`.
+  - Bare `N/N` (e.g. `4/4`, `3/4`, `6/8`) → `{time: N/N}` directive.
+  - Bare integer in range 40–300 → `{tempo: N}` directive.
+  - Multi-field lines (e.g. `tom: E   tempo: 90   4/4`) are parsed in one pass
+    and emit all detected fields independently.
 
 ## [0.3.6] — Resilient section heading detection + toSimpleText normalisation
 
