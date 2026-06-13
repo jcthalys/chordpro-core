@@ -620,4 +620,149 @@ describe('parseFreeText', () => {
       expect(r.chordpro).toContain('[Am]Não   [G]bom');
     });
   });
+
+  // ── CR14-5 — labelled + bare metadata patterns, EN + PT ─────────────────
+  describe('CR14-5 — fórmula: short form', () => {
+    it('fórmula: 4/4 → time directive', () => {
+      const r = parseFreeText('Song\nArtist\nFórmula: 4/4');
+      expect(r.metadata.get('time')).toBe('4/4');
+      expect(r.chordpro).toContain('{time: 4/4}');
+    });
+
+    it('formula: 6/8 (no accent) → time directive', () => {
+      const r = parseFreeText('Song\nArtist\nFormula: 6/8');
+      expect(r.metadata.get('time')).toBe('6/8');
+    });
+
+    it('fórmula: 3/4 → time directive', () => {
+      const r = parseFreeText('Song\nArtist\nFórmula: 3/4');
+      expect(r.metadata.get('time')).toBe('3/4');
+    });
+
+    it('fórmula: Binário (non-numeric) → meta:compasso', () => {
+      const r = parseFreeText('Song\nArtist\nFórmula: Binário');
+      expect(r.metadata.get('compasso')).toBe('Binário');
+    });
+  });
+
+  describe('CR14-5 — bare time signature', () => {
+    it('bare 4/4 → time directive', () => {
+      const r = parseFreeText('Song\nArtist\n4/4');
+      expect(r.metadata.get('time')).toBe('4/4');
+      expect(r.chordpro).toContain('{time: 4/4}');
+    });
+
+    it('bare 3/4 → time directive', () => {
+      const r = parseFreeText('Song\nArtist\n3/4');
+      expect(r.metadata.get('time')).toBe('3/4');
+    });
+
+    it('bare 6/8 → time directive', () => {
+      const r = parseFreeText('Song\nArtist\n6/8');
+      expect(r.metadata.get('time')).toBe('6/8');
+    });
+  });
+
+  describe('CR14-5 — bare tempo', () => {
+    it('bare 90 → tempo directive', () => {
+      const r = parseFreeText('Song\nArtist\n90');
+      expect(r.metadata.get('tempo')).toBe('90');
+      expect(r.chordpro).toContain('{tempo: 90}');
+    });
+
+    it('bare 120 → tempo directive', () => {
+      const r = parseFreeText('Song\nArtist\n120');
+      expect(r.metadata.get('tempo')).toBe('120');
+    });
+
+    it('bare 40 (lower bound) → tempo directive', () => {
+      const r = parseFreeText('Song\nArtist\n40');
+      expect(r.metadata.get('tempo')).toBe('40');
+    });
+
+    it('bare 300 (upper bound) → tempo directive', () => {
+      const r = parseFreeText('Song\nArtist\n300');
+      expect(r.metadata.get('tempo')).toBe('300');
+    });
+
+    it('bare 39 (below range) → NOT tempo (treated as lyric/title)', () => {
+      const r = parseFreeText('Song\nArtist\n39');
+      expect(r.metadata.get('tempo')).toBeUndefined();
+    });
+
+    it('bare 301 (above range) → NOT tempo', () => {
+      const r = parseFreeText('Song\nArtist\n301');
+      expect(r.metadata.get('tempo')).toBeUndefined();
+    });
+  });
+
+  describe('CR14-5 — key via guessKey path (chord-above-lyrics songs)', () => {
+    it('song with only E chords → key guessed as E', () => {
+      // Multiple E chords across sections; guessKey achieves threshold
+      const r = parseFreeText('Song\nArtist\n\nE E B7\nSome lyrics\nE A B7\nMore words');
+      expect(r.metadata.get('key')).toBe('E');
+    });
+
+    it('song with Am/Dm/E chord set → key guessed as Am', () => {
+      const r = parseFreeText('Song\nArtist\n\nAm Dm E\nSome lyrics\nAm G F E\nMore words');
+      expect(r.metadata.get('key')).toBe('Am');
+    });
+  });
+
+  describe('CR14-5 — ambiguity guards', () => {
+    it('bare 90 → tempo, not key', () => {
+      const r = parseFreeText('Song\nArtist\n90');
+      expect(r.metadata.get('key')).toBeUndefined();
+      expect(r.metadata.get('tempo')).toBe('90');
+    });
+
+    it('bare 4/4 → time, not tempo', () => {
+      const r = parseFreeText('Song\nArtist\n4/4');
+      expect(r.metadata.get('tempo')).toBeUndefined();
+      expect(r.metadata.get('time')).toBe('4/4');
+    });
+
+    it('chord-above-lyrics G on its own line → chord, not key', () => {
+      // G alone inside song body is a chord-only line, not a key declaration
+      const r = parseFreeText('Song\nArtist\n\nG\nSing along');
+      // key comes from guessKey (G chord → G key), NOT from bare-key misdetection
+      // What matters: the lyric is rendered, G is a chord in the output
+      expect(r.chordpro).toContain('[G]');
+    });
+  });
+
+  describe('CR14-5 — multi-field lines', () => {
+    it('tom: E   tempo: 90   4/4 → all three fields', () => {
+      const r = parseFreeText('Song\nArtist\ntom: E   tempo: 90   4/4');
+      expect(r.metadata.get('key')).toBe('E');
+      expect(r.metadata.get('tempo')).toBe('90');
+      expect(r.metadata.get('time')).toBe('4/4');
+    });
+
+    it('key: G   time: 3/4 → two fields', () => {
+      const r = parseFreeText('Song\nArtist\nkey: G   time: 3/4');
+      expect(r.metadata.get('key')).toBe('G');
+      expect(r.metadata.get('time')).toBe('3/4');
+    });
+
+    it('bpm: 76   compasso: 4/4 → tempo and time', () => {
+      const r = parseFreeText('Song\nArtist\nbpm: 76   compasso: 4/4');
+      expect(r.metadata.get('tempo')).toBe('76');
+      expect(r.metadata.get('time')).toBe('4/4');
+    });
+
+    it('tom: Am   tempo: 100   6/8 → three fields with minor key', () => {
+      const r = parseFreeText('Song\nArtist\ntom: Am   tempo: 100   6/8');
+      expect(r.metadata.get('key')).toBe('Am');
+      expect(r.metadata.get('tempo')).toBe('100');
+      expect(r.metadata.get('time')).toBe('6/8');
+    });
+
+    it('all multi-field directives re-parse without UNKNOWN_DIRECTIVE warnings', () => {
+      const { chordpro } = parseFreeText('Song\nArtist\ntom: E   tempo: 90   4/4\n\n[Verse]\nHello');
+      const song = parse(chordpro);
+      const unknowns = song.warnings.filter((w) => w.code === 'UNKNOWN_DIRECTIVE');
+      expect(unknowns).toHaveLength(0);
+    });
+  });
 });

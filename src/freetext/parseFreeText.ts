@@ -133,6 +133,10 @@ function matchMetaLine(line: string): MetaEntry[] | null {
   m = t.match(/^tom\s*\(\s*capo\s+(\d+)\s*\)\s*:\s*(.+)$/i);
   if (m) return [entry('key', m[2]!.trim()), entry('capo', m[1]!.trim())];
 
+  // ── Multi-field lines (before single-field tom:/key: to avoid capturing entire line) ──
+  const multiEarly = tryMultiFieldLine(t);
+  if (multiEarly !== null) return multiEarly;
+
   // ── Single key/tuning lines ────────────────────────────────────────────────
   // "Tom real: X"
   m = t.match(/^tom\s+real\s*:\s*(.+)$/i);
@@ -194,6 +198,13 @@ function matchMetaLine(line: string): MetaEntry[] | null {
   m = t.match(/^time\s*:\s*(.+)$/i);
   if (m) return [entry('time', m[1]!.trim())];
 
+  // "Fórmula: X" (Portuguese short form; "fórmula de compasso" is handled above)
+  m = t.match(/^f[oó]rmula\s*:\s*(.+)$/i);
+  if (m) {
+    const val = m[1]!.trim();
+    return [entry(/^\d+\/\d+$/.test(val) ? 'time' : 'compasso', val)];
+  }
+
   // ── Standard metadata — Portuguese labels ──────────────────────────────────
   // "Artista: X"
   m = t.match(/^artista\s*:\s*(.+)$/i);
@@ -239,7 +250,39 @@ function matchMetaLine(line: string): MetaEntry[] | null {
   m = t.match(/^copyright\s*:\s*(.+)$/i);
   if (m) return [entry('copyright', m[1]!.trim())];
 
+  // ── Bare time signature (N/N) ─────────────────────────────────────────────────
+  m = t.match(/^(\d+\/\d+)$/);
+  if (m) return [entry('time', m[1]!)];
+
+  // ── Bare tempo (pure integer in BPM range 40–300) ────────────────────────────
+  m = t.match(/^(\d+)$/);
+  if (m) {
+    const n = parseInt(m[1]!, 10);
+    if (n >= 40 && n <= 300) return [entry('tempo', m[1]!)];
+  }
+
   return null;
+}
+
+/** Scan a line for multiple co-located field tokens; returns ≥ 2 entries or null. */
+function tryMultiFieldLine(t: string): MetaEntry[] | null {
+  const entries: MetaEntry[] = [];
+
+  const keyM = t.match(/(?:^|\s)(?:key|tom)\s*:\s*([A-G][b#]?(?:m(?:in)?)?)/i);
+  if (keyM) entries.push(entry('key', keyM[1]!.trim()));
+
+  const tempoM = t.match(/(?:^|\s)(?:tempo|bpm|andamento)\s*:\s*(\d+)(?=\s|$)/i);
+  if (tempoM) entries.push(entry('tempo', tempoM[1]!.trim()));
+
+  const timeLabelM = t.match(/(?:^|\s)(?:time|compasso|f[oó]rmula)\s*:\s*(\d+\/\d+)/i);
+  if (timeLabelM) {
+    entries.push(entry('time', timeLabelM[1]!.trim()));
+  } else {
+    const bareTimeM = t.match(/(?:^|\s)(\d+\/\d+)(?:\s|$)/);
+    if (bareTimeM) entries.push(entry('time', bareTimeM[1]!.trim()));
+  }
+
+  return entries.length >= 2 ? entries : null;
 }
 
 /** Emit a MetaEntry as a ChordPro directive string (without surrounding {}). */
